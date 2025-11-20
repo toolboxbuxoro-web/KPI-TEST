@@ -1,0 +1,122 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  position  String
+  createdAt DateTime @default(now())
+  
+  sessions  EmployeeTestSession[]
+}
+
+model Test {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  createdBy   String
+  passingScore Int      @default(70)
+  createdAt   DateTime @default(now())
+  
+  questions   Question[]
+  sessions    EmployeeTestSession[]
+}
+
+model Question {
+  id            String         @id @default(cuid())
+  testId        String
+  test          Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
+  text          String
+  imageUrl      String?
+  questionType QuestionType   @default(single)
+  options       AnswerOption[]
+  answers       EmployeeAnswer[]
+
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([testId])
+}
+
+model AnswerOption {
+  id         String   @id @default(cuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean  @default(false)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([questionId])
+}
+
+model EmployeeTestSession {
+  id          String    @id @default(cuid())
+  employeeId  String
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  testId      String
+  test        Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
+  
+  status      SessionStatus @default(pending)
+  startedAt   DateTime      @default(now())
+  completedAt DateTime?
+  
+  score       Int           @default(0)
+  maxScore    Int           @default(0)
+  kpiScore    Float?        // Calculated KPI percentage
+
+  answers     EmployeeAnswer[]
+
+  @@index([employeeId])
+  @@index([testId])
+  @@index([status])
+}
+
+model EmployeeAnswer {
+  id              String              @id @default(cuid())
+  sessionId       String
+  session         EmployeeTestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId      String
+  question        Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  selectedOptionIds String[] // Array of selected option IDs
+
+  createdAt       DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([questionId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  details   String?
+  before    String?
+  after     String?
+  createdAt DateTime @default(now())
+
+  @@index([action])
+}
+
+enum QuestionType {
+  single
+  multi
+}
+
+enum SessionStatus {
+  pending
+  completed
+}

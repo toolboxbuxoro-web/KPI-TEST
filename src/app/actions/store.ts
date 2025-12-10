@@ -11,6 +11,9 @@ const CACHE_TTL = 60 * 5 // 5 minutes
 export interface StoreData {
   name: string
   address?: string
+  latitude?: number | null
+  longitude?: number | null
+  radiusMeters?: number
   workStartHour?: number
   workEndHour?: number
   isActive?: boolean
@@ -24,6 +27,9 @@ export async function createStore(data: StoreData) {
     data: {
       name: data.name,
       address: data.address || null,
+      latitude: data.latitude ?? null,
+      longitude: data.longitude ?? null,
+      radiusMeters: data.radiusMeters ?? 100,
       workStartHour: data.workStartHour ?? 8,
       workEndHour: data.workEndHour ?? 18,
       isActive: data.isActive ?? true

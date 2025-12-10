@@ -156,16 +156,18 @@ model EmployeeAnswer {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  action    String
-  entity    String
-  before    String?
-  after     String?
-  createdAt DateTime @default(now())
-  details   String?
+  id            String   @id @default(cuid())
+  userId        String?
+  action        String
+  entity        String
+  recordId      String?  // ID of the modified record
+  previousValue Json?    // Previous state as JSON
+  newValue      Json?    // New state as JSON
+  createdAt     DateTime @default(now())
+  details       String?
 
   @@index([action])
+  @@index([recordId])
 }
 
 model TestAssignment {

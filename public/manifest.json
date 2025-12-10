@@ -1,0 +1,22 @@
+{
+  "name": "Toolbox Control",
+  "short_name": "Toolbox",
+  "description": "Система контроля посещаемости сотрудников",
+  "start_url": "/check",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#a855f7",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

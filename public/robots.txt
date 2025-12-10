@@ -1,0 +1,4 @@
+User-Agent: *
+Disallow:
+
+Sitemap: https://toolbox-control.vercel.app/sitemap.xml

@@ -37,7 +37,7 @@ export default async function AuditPage() {
                   <TableCell className="uppercase font-bold text-xs">{log.action}</TableCell>
                   <TableCell>{log.entity}</TableCell>
                   <TableCell className="font-mono text-xs max-w-xs truncate">
-                    {JSON.stringify(log.after)}
+                    {JSON.stringify(log.newValue)}
                   </TableCell>
                 </TableRow>
               ))}

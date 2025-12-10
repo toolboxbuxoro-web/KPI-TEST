@@ -1,8 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle } from 'lucide-react'
+import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2 } from 'lucide-react'
+
+// Dynamic import for Leaflet map (SSR incompatible)
+const StoreLocationMap = dynamic(
+  () => import('@/components/admin/StoreLocationMap').then(mod => mod.StoreLocationMap),
+  { ssr: false, loading: () => <div className="w-full h-40 bg-muted/50 rounded-lg animate-pulse" /> }
+)
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -46,6 +53,9 @@ import {
 interface StoreFormData {
   name: string
   address: string
+  latitude: number | null
+  longitude: number | null
+  radiusMeters: number
   workStartHour: number
   workEndHour: number
   isActive: boolean
@@ -58,10 +68,15 @@ export default function StoresPage() {
   const [editingStore, setEditingStore] = useState<any>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [storeToDelete, setStoreToDelete] = useState<any>(null)
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
+  const [geoError, setGeoError] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<StoreFormData>({
     name: '',
     address: '',
+    latitude: null,
+    longitude: null,
+    radiusMeters: 100,
     workStartHour: 8,
     workEndHour: 18,
     isActive: true
@@ -88,11 +103,15 @@ export default function StoresPage() {
     setFormData({
       name: '',
       address: '',
+      latitude: null,
+      longitude: null,
+      radiusMeters: 100,
       workStartHour: 8,
       workEndHour: 18,
       isActive: true
     })
     setEditingStore(null)
+    setGeoError(null)
   }
 
   const openEditDialog = (store: any) => {
@@ -100,12 +119,62 @@ export default function StoresPage() {
     setFormData({
       name: store.name,
       address: store.address || '',
+      latitude: store.latitude ?? null,
+      longitude: store.longitude ?? null,
+      radiusMeters: store.radiusMeters ?? 100,
       workStartHour: store.workStartHour,
       workEndHour: store.workEndHour,
       isActive: store.isActive
     })
+    setGeoError(null)
     setDialogOpen(true)
   }
+
+  // Geolocation detection
+  const detectLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setGeoError('Геолокация не поддерживается браузером')
+      return
+    }
+
+    setIsGettingLocation(true)
+    setGeoError(null)
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          latitude: Math.round(position.coords.latitude * 1000000) / 1000000,
+          longitude: Math.round(position.coords.longitude * 1000000) / 1000000
+        }))
+        setIsGettingLocation(false)
+        toast.success('Местоположение определено')
+      },
+      (error) => {
+        setIsGettingLocation(false)
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            setGeoError('Доступ к геолокации запрещён')
+            break
+          case error.POSITION_UNAVAILABLE:
+            setGeoError('Местоположение недоступно')
+            break
+          case error.TIMEOUT:
+            setGeoError('Время ожидания истекло')
+            break
+          default:
+            setGeoError('Ошибка определения местоположения')
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
+  }, [])
+
+  // Coordinate validation
+  const isValidLatitude = (lat: number | null) => lat === null || (lat >= -90 && lat <= 90)
+  const isValidLongitude = (lng: number | null) => lng === null || (lng >= -180 && lng <= 180)
+  const hasValidCoordinates = formData.latitude !== null && formData.longitude !== null && 
+    isValidLatitude(formData.latitude) && isValidLongitude(formData.longitude)
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
@@ -193,6 +262,107 @@ export default function StoresPage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                   placeholder="ул. Примерная, 123"
                 />
+              </div>
+
+              {/* Geolocation Section */}
+              <div className="space-y-3 p-4 rounded-xl bg-muted/30 border border-white/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Геолокация</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={detectLocation}
+                    disabled={isGettingLocation}
+                    className="gap-2"
+                  >
+                    {isGettingLocation ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Navigation className="h-3.5 w-3.5" />
+                    )}
+                    Определить
+                  </Button>
+                </div>
+
+                {geoError && (
+                  <div className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 px-3 py-2 rounded-lg">
+                    <AlertCircle className="h-4 w-4" />
+                    {geoError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="latitude" className="text-xs">Широта</Label>
+                    <Input
+                      id="latitude"
+                      type="number"
+                      step="0.000001"
+                      min={-90}
+                      max={90}
+                      value={formData.latitude ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? null : parseFloat(e.target.value)
+                        setFormData(prev => ({ ...prev, latitude: val }))
+                      }}
+                      placeholder="39.7749"
+                      className={!isValidLatitude(formData.latitude) ? 'border-destructive' : ''}
+                    />
+                    {formData.latitude !== null && !isValidLatitude(formData.latitude) && (
+                      <p className="text-xs text-destructive">-90 до 90</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="longitude" className="text-xs">Долгота</Label>
+                    <Input
+                      id="longitude"
+                      type="number"
+                      step="0.000001"
+                      min={-180}
+                      max={180}
+                      value={formData.longitude ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? null : parseFloat(e.target.value)
+                        setFormData(prev => ({ ...prev, longitude: val }))
+                      }}
+                      placeholder="64.4194"
+                      className={!isValidLongitude(formData.longitude) ? 'border-destructive' : ''}
+                    />
+                    {formData.longitude !== null && !isValidLongitude(formData.longitude) && (
+                      <p className="text-xs text-destructive">-180 до 180</p>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="radius" className="text-xs">Радиус (м)</Label>
+                    <Input
+                      id="radius"
+                      type="number"
+                      min={10}
+                      max={10000}
+                      value={formData.radiusMeters}
+                      onChange={(e) => setFormData(prev => ({ ...prev, radiusMeters: parseInt(e.target.value) || 100 }))}
+                      placeholder="100"
+                    />
+                  </div>
+                </div>
+
+                {/* Mini-map preview */}
+                {hasValidCoordinates && (
+                  <div className="mt-3">
+                    <StoreLocationMap
+                      latitude={formData.latitude!}
+                      longitude={formData.longitude!}
+                      radiusMeters={formData.radiusMeters}
+                    />
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      Радиус покрытия: {formData.radiusMeters}м
+                    </p>
+                  </div>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-4">

@@ -38,7 +38,7 @@ const prismaClientSingleton = () => {
                 // Capturing before/after is complex in generic middleware without performance hit.
                 // For now, we log the operation and args.
                 // To do full diffing, we'd need to read before write.
-                after: JSON.stringify(args), 
+                newValue: JSON.parse(JSON.stringify(args)), 
               }
             })
           } catch (error) {

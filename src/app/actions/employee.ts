@@ -255,8 +255,9 @@ export async function deleteDocument(id: string) {
 }
 
 export async function getEmployee(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  // Allow public access for scanner kiosk mode
+  // const session = await auth()
+  // if (!session?.user) throw new Error("Unauthorized")
 
   try {
     const employee = await prisma.employee.findUnique({

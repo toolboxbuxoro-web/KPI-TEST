@@ -18,12 +18,12 @@ const prismaClientSingleton = () => {
           // Get current user (this might not work in all contexts, e.g. background jobs)
           // In Server Actions, 'auth()' should work.
           let userId = 'system'
-          try {
-             const session = await auth()
-             if (session?.user?.email) userId = session.user.email // Use email or ID
-          } catch (e) {
-            // Ignore auth errors during build/seed
-          }
+          // try {
+          //    const session = await auth()
+          //    if (session?.user?.email) userId = session.user.email // Use email or ID
+          // } catch (e) {
+          //   // Ignore auth errors during build/seed
+          // }
 
           const result = await query(args)
 
@@ -42,7 +42,10 @@ const prismaClientSingleton = () => {
               }
             })
           } catch (error) {
-            console.error("Failed to create audit log", error)
+            // Silently fail audit logging to avoid breaking main operations
+            if (process.env.NODE_ENV === 'development') {
+              console.error("Failed to create audit log", error instanceof Error ? error.message : String(error))
+            }
           }
 
           return result

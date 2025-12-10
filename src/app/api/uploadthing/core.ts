@@ -6,7 +6,7 @@ const f = createUploadthing();
 const auth = (req: Request) => ({ id: "admin" }); // Fake auth for now
 
 export const ourFileRouter = {
-  imageUploader: f({ image: { maxFileSize: "4MB" } })
+  imageUploader: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
     .middleware(async ({ req }) => {
       const user = await auth(req);
       if (!user) throw new UploadThingError("Unauthorized");
@@ -15,6 +15,20 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata, file }) => {
       console.log("Upload complete for userId:", metadata.userId);
       console.log("file url", file.url);
+      return { uploadedBy: metadata.userId };
+    }),
+  
+  documentUploader: f({ 
+    pdf: { maxFileSize: "8MB", maxFileCount: 4 },
+    image: { maxFileSize: "8MB", maxFileCount: 4 }
+  })
+    .middleware(async ({ req }) => {
+      const user = await auth(req);
+      if (!user) throw new UploadThingError("Unauthorized");
+      return { userId: user.id };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
+      console.log("Document upload complete for userId:", metadata.userId);
       return { uploadedBy: metadata.userId };
     }),
 } satisfies FileRouter;

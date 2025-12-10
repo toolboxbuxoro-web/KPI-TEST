@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,40 +7,94 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Store model for managing multiple locations
+model Store {
+  id            String             @id @default(cuid())
+  name          String
+  address       String?
+  workStartHour Int                @default(8)  // 08:00
+  workEndHour   Int                @default(18) // 18:00
+  isActive      Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  attendance    AttendanceRecord[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
 model Employee {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  position  String
-  createdAt DateTime @default(now())
-  
-  sessions  EmployeeTestSession[]
+  id                  String                @id @default(cuid())
+  firstName           String
+  lastName            String
+  position            String
+  createdAt           DateTime              @default(now())
+  imageUrl            String?
+  faceDescriptor      Json?                 // Float32Array[128] as JSON
+  descriptorUpdatedAt DateTime?
+  consentSignedAt     DateTime?             // GDPR: biometric consent date
+  attendance          AttendanceRecord[]
+  documents           EmployeeDocument[]
+  sessions            EmployeeTestSession[]
+  assignments         TestAssignment[]
+}
+
+model AttendanceRecord {
+  id         String    @id @default(cuid())
+  employeeId String
+  storeId    String?
+  checkIn    DateTime  @default(now())
+  checkOut   DateTime?
+  branch     String?   @default("Main Branch") // deprecated, kept for compatibility
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  store      Store?    @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
+  @@index([employeeId])
+  @@index([storeId])
+  @@index([checkIn])
+  @@index([employeeId, checkIn]) // Composite index for fast history queries
+}
+
+model EmployeeDocument {
+  id         String   @id @default(cuid())
+  name       String
+  url        String
+  type       String
+  size       Int
+  employeeId String
+  createdAt  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
 }
 
 model Test {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  createdBy   String
-  passingScore Int      @default(70)
-  createdAt   DateTime @default(now())
-  
-  questions   Question[]
-  sessions    EmployeeTestSession[]
+  id           String                @id @default(cuid())
+  title        String
+  description  String?
+  createdBy    String
+  createdAt    DateTime              @default(now())
+  passingScore Int                   @default(70)
+  timeLimit    Int?
+  sessions     EmployeeTestSession[]
+  questions    Question[]
+  assignments  TestAssignment[]
 }
 
 model Question {
-  id            String         @id @default(cuid())
-  testId        String
-  test          Test           @relation(fields: [testId], references: [id], onDelete: Cascade)
-  text          String
-  imageUrl      String?
-  questionType QuestionType   @default(single)
-  options       AnswerOption[]
-  answers       EmployeeAnswer[]
-
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id           String           @id @default(cuid())
+  testId       String
+  text         String
+  imageUrl     String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  questionType QuestionType     @default(single)
+  points       Int              @default(1)
+  options      AnswerOption[]
+  answers      EmployeeAnswer[]
+  test         Test             @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([testId])
 }
@@ -51,32 +102,31 @@ model Question {
 model AnswerOption {
   id         String   @id @default(cuid())
   questionId String
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   text       String
   isCorrect  Boolean  @default(false)
-
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([questionId])
 }
 
 model EmployeeTestSession {
-  id          String    @id @default(cuid())
-  employeeId  String
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  testId      String
-  test        Test      @relation(fields: [testId], references: [id], onDelete: Cascade)
-  
-  status      SessionStatus @default(pending)
-  startedAt   DateTime      @default(now())
-  completedAt DateTime?
-  
-  score       Int           @default(0)
-  maxScore    Int           @default(0)
-  kpiScore    Float?        // Calculated KPI percentage
-
-  answers     EmployeeAnswer[]
+  id               String           @id @default(cuid())
+  employeeId       String
+  testId           String
+  score            Int              @default(0)
+  kpiScore         Float?
+  startedAt        DateTime         @default(now())
+  completedAt      DateTime?
+  correctAnswers   Int              @default(0)
+  incorrectAnswers Int              @default(0)
+  maxScore         Int              @default(0)
+  totalQuestions   Int              @default(0)
+  status           SessionStatus    @default(pending)
+  answers          EmployeeAnswer[]
+  employee         Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  test             Test             @relation(fields: [testId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([testId])
@@ -84,15 +134,13 @@ model EmployeeTestSession {
 }
 
 model EmployeeAnswer {
-  id              String              @id @default(cuid())
-  sessionId       String
-  session         EmployeeTestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  questionId      String
-  question        Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  
-  selectedOptionIds String[] // Array of selected option IDs
-
-  createdAt       DateTime @default(now())
+  id                String              @id @default(cuid())
+  sessionId         String
+  questionId        String
+  createdAt         DateTime            @default(now())
+  selectedOptionIds String[]
+  question          Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  session           EmployeeTestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
   @@index([questionId])
@@ -103,12 +151,26 @@ model AuditLog {
   userId    String?
   action    String
   entity    String
-  details   String?
   before    String?
   after     String?
   createdAt DateTime @default(now())
+  details   String?
 
   @@index([action])
+}
+
+model TestAssignment {
+  id         String   @id @default(cuid())
+  testId     String
+  employeeId String
+  assignedAt DateTime @default(now())
+  assignedBy String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  test       Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@unique([testId, employeeId])
+  @@index([testId])
+  @@index([employeeId])
 }
 
 enum QuestionType {

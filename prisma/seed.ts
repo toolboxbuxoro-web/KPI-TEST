@@ -11,10 +11,42 @@ async function main() {
   await prisma.answerOption.deleteMany()
   await prisma.question.deleteMany()
   await prisma.test.deleteMany()
+  await prisma.attendanceRecord.deleteMany()
+  await prisma.store.deleteMany()
   await prisma.employee.deleteMany()
   await prisma.auditLog.deleteMany()
 
   console.log('Cleared existing data')
+
+  // Create stores
+  const stores = await Promise.all([
+    prisma.store.create({
+      data: {
+        name: 'Центральный',
+        address: 'ул. Центральная, 1',
+        workStartHour: 8,
+        workEndHour: 18,
+      },
+    }),
+    prisma.store.create({
+      data: {
+        name: 'Северный',
+        address: 'ул. Северная, 25',
+        workStartHour: 9,
+        workEndHour: 19,
+      },
+    }),
+    prisma.store.create({
+      data: {
+        name: 'Южный',
+        address: 'ул. Южная, 100',
+        workStartHour: 8,
+        workEndHour: 18,
+      },
+    }),
+  ])
+
+  console.log('Created stores:', stores.length)
 
   // Create employees
   const employees = await Promise.all([
@@ -210,9 +242,14 @@ async function main() {
 
   console.log('\n✅ Seeding completed successfully!')
   console.log(`\n📊 Summary:`)
+  console.log(`- Stores: ${stores.length}`)
   console.log(`- Employees: ${employees.length}`)
   console.log(`- Tests: 3`)
   console.log(`- Total Questions: 8`)
+  console.log(`\n🏪 Stores:`)
+  stores.forEach(store => {
+    console.log(`- ${store.name}: ${store.address}`)
+  })
   console.log(`\n🔗 Employee Links:`)
   employees.forEach(emp => {
     console.log(`- ${emp.firstName} ${emp.lastName}: http://localhost:3000/employee/${emp.id}`)

@@ -7,7 +7,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 flex flex-col items-center justify-center p-4 text-center">
       <div className="max-w-3xl space-y-8">
         <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
-          Toolbox KPI <span className="text-blue-600">Testing</span>
+          Toolbox <span className="text-blue-600">Control</span>
         </h1>
         <p className="text-xl text-gray-500 dark:text-gray-400">
           Система оценки эффективности сотрудников. Создавайте тесты, отслеживайте результаты и повышайте квалификацию команды.

@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { employeeSchema } from "@/lib/schemas"
 import { z } from "zod"
-import { createEmployee, updateEmployee } from "@/app/actions/employee"
+import { createEmployee, updateEmployee, addDocument, deleteDocument } from "@/app/actions/employee"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -24,7 +24,13 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
-import { Plus, Pencil } from "lucide-react"
+import { Plus, Pencil, Trash2, FileText, Image as ImageIcon, Loader2, Camera } from "lucide-react"
+import { FileUpload } from "@/components/file-upload"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import Webcam from "react-webcam"
+import { useUploadThing } from "@/lib/uploadthing"
+import { useRef } from "react"
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>
 
@@ -34,13 +40,53 @@ interface EmployeeDialogProps {
     firstName: string
     lastName: string
     position: string
+    imageUrl?: string | null
+    documents?: {
+      id: string
+      name: string
+      url: string
+      type: string
+      size: number
+    }[]
   }
   trigger?: React.ReactNode
 }
 
 export function EmployeeDialog({ employee, trigger }: EmployeeDialogProps) {
   const [open, setOpen] = useState(false)
+  const [docLoading, setDocLoading] = useState<string | null>(null) // ID of doc being deleted or 'upload'
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const webcamRef = useRef<Webcam>(null)
   const isEditing = !!employee
+
+  const { startUpload, isUploading } = useUploadThing("imageUploader", {
+    onClientUploadComplete: (res) => {
+      if (res && res[0]) {
+        form.setValue("imageUrl", res[0].url)
+        toast.success("Фото загружено")
+        setIsCameraOpen(false)
+      }
+    },
+    onUploadError: () => {
+      toast.error("Ошибка загрузки фото")
+    },
+  })
+
+  const capture = async () => {
+    const imageSrc = webcamRef.current?.getScreenshot()
+    if (imageSrc) {
+      try {
+        // Convert base64 to blob
+        const res = await fetch(imageSrc)
+        const blob = await res.blob()
+        const file = new File([blob], "webcam-photo.jpg", { type: "image/jpeg" })
+        
+        await startUpload([file])
+      } catch (e) {
+        toast.error("Ошибка обработки фото")
+      }
+    }
+  }
 
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
@@ -48,6 +94,7 @@ export function EmployeeDialog({ employee, trigger }: EmployeeDialogProps) {
       firstName: employee?.firstName || "",
       lastName: employee?.lastName || "",
       position: employee?.position || "",
+      imageUrl: employee?.imageUrl || "",
     },
   })
 
@@ -67,6 +114,31 @@ export function EmployeeDialog({ employee, trigger }: EmployeeDialogProps) {
     }
   }
 
+  const handleDocumentUpload = async (url?: string, name?: string, size?: number, type?: string) => {
+    if (!employee || !url || !name || !size || !type) return
+    setDocLoading('upload')
+    try {
+      await addDocument(employee.id, { name, url, size, type })
+      toast.success("Документ добавлен")
+    } catch (error) {
+      toast.error("Ошибка добавления документа")
+    } finally {
+      setDocLoading(null)
+    }
+  }
+
+  const handleDeleteDocument = async (docId: string) => {
+    setDocLoading(docId)
+    try {
+      await deleteDocument(docId)
+      toast.success("Документ удален")
+    } catch (error) {
+      toast.error("Ошибка удаления документа")
+    } finally {
+      setDocLoading(null)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -77,54 +149,216 @@ export function EmployeeDialog({ employee, trigger }: EmployeeDialogProps) {
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? "Редактировать сотрудника" : "Новый сотрудник"}</DialogTitle>
+      <DialogContent className="sm:max-w-[600px] md:max-w-[700px] max-h-[85vh] gap-0 p-0">
+        <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
+          <DialogTitle className="text-lg sm:text-xl">
+            {isEditing ? "Редактировать сотрудника" : "Новый сотрудник"}
+          </DialogTitle>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Имя</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Иван" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Фамилия</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Иванов" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="position"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Должность</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Менеджер" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full">Сохранить</Button>
-          </form>
-        </Form>
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 sm:pb-6">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6 pt-4 sm:pt-6">
+              {/* Фото профиля */}
+              <div className="flex flex-col items-center gap-2 border rounded-lg p-3 sm:p-4 bg-muted/20">
+                <FormLabel className="text-sm font-medium text-center w-full">
+                  Фото профиля
+                </FormLabel>
+                <Avatar className="h-16 w-16 sm:h-20 sm:w-20 border-2 border-background shadow-sm">
+                  <AvatarImage src={form.watch("imageUrl") || undefined} />
+                  <AvatarFallback className="text-base sm:text-lg font-semibold bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
+                    {form.watch("firstName")?.[0] || "?"}{form.watch("lastName")?.[0] || ""}
+                  </AvatarFallback>
+                </Avatar>
+                {form.watch("imageUrl") ? (
+                  <div className="text-center w-full">
+                    <p className="text-xs text-green-600 dark:text-green-400 mb-2 font-medium">
+                      ✓ Фото загружено
+                    </p>
+                    <FileUpload 
+                      endpoint="imageUploader"
+                      onChange={(url) => form.setValue("imageUrl", url)}
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full">
+                    <FileUpload 
+                      endpoint="imageUploader"
+                      onChange={(url) => form.setValue("imageUrl", url)}
+                    />
+                  </div>
+                )}
+              </div>
+              
+              {/* Webcam Capture */}
+              <div className="flex justify-center">
+                 {!isCameraOpen ? (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setIsCameraOpen(true)}
+                      className="gap-2"
+                    >
+                      <Camera className="h-4 w-4" />
+                      Сделать фото
+                    </Button>
+                 ) : (
+                    <div className="space-y-2 w-full max-w-sm">
+                      <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                        <Webcam
+                          audio={false}
+                          ref={webcamRef}
+                          screenshotFormat="image/jpeg"
+                          className="w-full h-full object-cover"
+                          videoConstraints={{ facingMode: "user" }}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-center">
+                        <Button type="button" onClick={capture} disabled={isUploading}>
+                          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Снять"}
+                        </Button>
+                        <Button type="button" variant="ghost" onClick={() => setIsCameraOpen(false)}>
+                          Отмена
+                        </Button>
+                      </div>
+                    </div>
+                 )}
+              </div>
+
+              {/* Поля формы */}
+              <div className="space-y-3 sm:space-y-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Имя</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Иван" className="h-10 text-sm sm:text-base" {...field} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Фамилия</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Иванов" className="h-10 text-sm sm:text-base" {...field} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="position"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Должность</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Менеджер" className="h-10 text-sm sm:text-base" {...field} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Button type="submit" className="w-full text-sm sm:text-base h-10 sm:h-11" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Сохранить
+              </Button>
+            </form>
+          </Form>
+
+          {isEditing && employee && (
+            <div className="border-t pt-4 sm:pt-6 mt-4 sm:mt-6 space-y-3 sm:space-y-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
+                <h3 className="font-semibold text-base sm:text-lg">Документы</h3>
+              </div>
+              
+              <div className="space-y-3 sm:space-y-4">
+                <div className="relative">
+                  {docLoading === 'upload' && (
+                    <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-blue-600" />
+                        <span className="text-xs sm:text-sm text-muted-foreground">Загрузка...</span>
+                      </div>
+                    </div>
+                  )}
+                  <FileUpload 
+                    endpoint="documentUploader"
+                    onChange={handleDocumentUpload}
+                  />
+                </div>
+                
+                <div className="border rounded-lg">
+                  <div className="max-h-[160px] sm:max-h-[200px] overflow-y-auto p-2 sm:p-3 space-y-2">
+                    {employee.documents?.map((doc) => (
+                      <div 
+                        key={doc.id} 
+                        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex-shrink-0">
+                          {doc.type.includes("image") ? (
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-md bg-blue-100 dark:bg-blue-900/20 flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                          ) : (
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-md bg-orange-100 dark:bg-orange-900/20 flex items-center justify-center">
+                              <FileText className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 dark:text-orange-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <a 
+                            href={doc.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="font-medium text-xs sm:text-sm truncate block hover:text-blue-600 hover:underline transition-colors"
+                          >
+                            {doc.name}
+                          </a>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground">
+                            {(doc.size / 1024 / 1024).toFixed(2)} MB
+                          </span>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 hover:bg-red-100 dark:hover:bg-red-900/20"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          disabled={docLoading === doc.id}
+                        >
+                          {docLoading === doc.id ? (
+                            <Loader2 className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                    {(!employee.documents || employee.documents.length === 0) && (
+                      <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-muted flex items-center justify-center mb-2 sm:mb-3">
+                          <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          Нет загруженных документов
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   )

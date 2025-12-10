@@ -71,11 +71,20 @@ export async function finishSession(sessionId: string) {
   if (!session) throw new Error("Session not found")
 
   let correctCount = 0
+  let incorrectCount = 0
+  let pointsEarned = 0
+  let totalPoints = 0
   const totalQuestions = session.test.questions.length
 
   session.test.questions.forEach(question => {
+    const questionPoints = question.points || 1
+    totalPoints += questionPoints
+
     const answer = session.answers.find(a => a.questionId === question.id)
-    if (!answer) return
+    if (!answer) {
+      incorrectCount++
+      return
+    }
 
     const selectedIds = answer.selectedOptionIds as string[]
     const correctOptionIds = question.options.filter(o => o.isCorrect).map(o => o.id)
@@ -84,18 +93,27 @@ export async function finishSession(sessionId: string) {
     const isCorrect = selectedIds.length === correctOptionIds.length && 
                       selectedIds.every(id => correctOptionIds.includes(id))
     
-    if (isCorrect) correctCount++
+    if (isCorrect) {
+      correctCount++
+      pointsEarned += questionPoints
+    } else {
+      incorrectCount++
+    }
   })
 
-  const score = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0
+  const kpiScore = totalPoints > 0 ? (pointsEarned / totalPoints) * 100 : 0
 
   await prisma.employeeTestSession.update({
     where: { id: sessionId },
     data: {
       status: "completed",
       completedAt: new Date(),
-      score: correctCount,
-      kpiScore: score
+      score: pointsEarned,
+      maxScore: totalPoints,
+      kpiScore: kpiScore,
+      correctAnswers: correctCount,
+      incorrectAnswers: incorrectCount,
+      totalQuestions: totalQuestions
     }
   })
 
@@ -104,5 +122,6 @@ export async function finishSession(sessionId: string) {
   await redis.del("leaderboard")
 
   revalidatePath(`/tests/${sessionId}`)
-  return { success: true, score }
+  return { success: true, score: kpiScore, pointsEarned, totalPoints }
 }
+

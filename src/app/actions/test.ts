@@ -6,21 +6,18 @@ import { auth } from "@/auth"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
-export async function createTest(formData: FormData) {
+import { z } from "zod"
+
+export async function createTest(data: z.infer<typeof testSchema>) {
   const session = await auth()
   if (!session?.user) {
     throw new Error("Unauthorized")
   }
 
-  const rawData = {
-    title: formData.get("title"),
-    description: formData.get("description"),
-  }
-
-  const validated = testSchema.safeParse(rawData)
+  const validated = testSchema.safeParse(data)
 
   if (!validated.success) {
-    return { error: validated.error.flatten() }
+    throw new Error("Invalid data")
   }
 
   await prisma.test.create({
@@ -28,6 +25,7 @@ export async function createTest(formData: FormData) {
       title: validated.data.title,
       description: validated.data.description,
       createdBy: session.user.email || "unknown",
+      timeLimit: validated.data.timeLimit && validated.data.timeLimit > 0 ? validated.data.timeLimit : null,
     },
   })
 

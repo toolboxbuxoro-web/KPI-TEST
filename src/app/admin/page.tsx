@@ -1,12 +1,14 @@
-import { getDashboardStats, getLeaderboard } from "@/app/actions/stats"
+import { getDashboardStats, getLeaderboard, getChartData } from "@/app/actions/stats"
 import { ExportButton } from "@/components/admin/export-button"
+import { DashboardCharts } from "@/components/admin/dashboard-charts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Users, FileText, CheckCircle, Trophy } from "lucide-react"
+import { Users, FileText, CheckCircle, Trophy, Clock, Percent } from "lucide-react"
 
 export default async function AdminDashboard() {
   const stats = await getDashboardStats()
   const leaderboard = await getLeaderboard()
+  const chartData = await getChartData()
 
   return (
     <div className="space-y-8">
@@ -19,7 +21,7 @@ export default async function AdminDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Всего сотрудников</CardTitle>
+            <CardTitle className="text-sm font-medium">Сотрудников</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -28,7 +30,7 @@ export default async function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Активных тестов</CardTitle>
+            <CardTitle className="text-sm font-medium">Тестов</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -37,7 +39,7 @@ export default async function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Завершено сессий</CardTitle>
+            <CardTitle className="text-sm font-medium">Сессий</CardTitle>
             <CheckCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -46,18 +48,18 @@ export default async function AdminDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Средний балл KPI</CardTitle>
-            <Trophy className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Проходимость</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.avgScore.toFixed(1)}%</div>
+            <div className="text-2xl font-bold">{stats.passRate.toFixed(1)}%</div>
           </CardContent>
         </Card>
       </div>
 
       {/* Leaderboard */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+      <div className="grid gap-4">
+        <Card>
           <CardHeader>
             <CardTitle>Лидеры по KPI</CardTitle>
           </CardHeader>
@@ -78,7 +80,14 @@ export default async function AdminDashboard() {
                       {session.employee.firstName} {session.employee.lastName}
                     </TableCell>
                     <TableCell>{session.test.title}</TableCell>
-                    <TableCell>{session.score}</TableCell>
+                    <TableCell>
+                      <span className="font-semibold text-green-600">
+                        {session.score}/{session.maxScore}
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        ({session.correctAnswers}/{session.totalQuestions})
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right font-bold">
                       {session.kpiScore?.toFixed(1)}%
                     </TableCell>

@@ -2,9 +2,11 @@ import prisma from "@/lib/db"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EmployeeDialog } from "@/components/admin/employee-dialog"
 import { EmployeeActions } from "@/components/admin/employee-actions"
 import { EmployeeSearch } from "@/components/admin/employee-search"
+import { ScanFace, AlertCircle } from "lucide-react"
 
 export default async function EmployeesPage({
   searchParams,
@@ -30,7 +32,8 @@ export default async function EmployeesPage({
         where: { status: "completed" },
         orderBy: { completedAt: "desc" },
         take: 1
-      }
+      },
+      documents: true
     },
     orderBy: { createdAt: "desc" }
   })
@@ -51,8 +54,9 @@ export default async function EmployeesPage({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Имя</TableHead>
+                <TableHead>Сотрудник</TableHead>
                 <TableHead>Должность</TableHead>
+                <TableHead>Биометрия</TableHead>
                 <TableHead>Последний тест</TableHead>
                 <TableHead>Последний KPI</TableHead>
                 <TableHead className="text-right">Действия</TableHead>
@@ -61,15 +65,45 @@ export default async function EmployeesPage({
             <TableBody>
               {employees.map((employee) => {
                 const lastSession = employee.sessions[0]
+                const hasBiometrics = !!employee.faceDescriptor && !!employee.consentSignedAt
                 return (
                   <TableRow key={employee.id}>
-                    <TableCell className="font-medium">
-                      {employee.firstName} {employee.lastName}
-                      <div className="text-xs text-muted-foreground font-mono mt-1">
-                        /employee/{employee.id}
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={employee.imageUrl || undefined} />
+                          <AvatarFallback className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
+                            {employee.firstName?.[0] || ""}{employee.lastName?.[0] || ""}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <a href={`/admin/employees/${employee.id}`} className="font-medium hover:underline">
+                            {employee.firstName} {employee.lastName}
+                          </a>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {employee.position}
+                          </div>
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>{employee.position}</TableCell>
+                    <TableCell>
+                      {hasBiometrics ? (
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30 gap-1">
+                          <ScanFace className="h-3 w-3" />
+                          Активна
+                        </Badge>
+                      ) : employee.imageUrl ? (
+                        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          Не настроена
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-muted text-muted-foreground gap-1">
+                          Нет фото
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {lastSession ? new Date(lastSession.completedAt!).toLocaleDateString("ru-RU") : "-"}
                     </TableCell>
@@ -88,7 +122,7 @@ export default async function EmployeesPage({
               })}
               {employees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
                     Сотрудники не найдены
                   </TableCell>
                 </TableRow>
@@ -100,3 +134,4 @@ export default async function EmployeesPage({
     </div>
   )
 }
+

@@ -5,6 +5,7 @@ import { deleteEmployee } from "@/app/actions/employee"
 import { Button } from "@/components/ui/button"
 import { EmployeeDialog } from "./employee-dialog"
 import { Trash2, Pencil, MoreHorizontal, Copy } from "lucide-react"
+import { useRouter } from "next/navigation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,18 +33,34 @@ interface EmployeeActionsProps {
     firstName: string
     lastName: string
     position: string
+    imageUrl?: string | null
+    documents?: {
+      id: string
+      name: string
+      url: string
+      type: string
+      size: number
+    }[]
   }
 }
 
 export function EmployeeActions({ employee }: EmployeeActionsProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const router = useRouter()
 
   const handleDelete = async () => {
     try {
-      await deleteEmployee(employee.id)
-      toast.success("Сотрудник удален")
+      const result = await deleteEmployee(employee.id)
+      if (result?.error) {
+        toast.error(result.error)
+      } else {
+        toast.success("Сотрудник удален")
+        setDeleteDialogOpen(false)
+        router.refresh()
+      }
     } catch (error) {
-      toast.error("Ошибка удаления")
+      toast.error("Ошибка удаления сотрудника")
+      console.error("Delete employee error:", error instanceof Error ? error.message : String(error))
     }
   }
 
@@ -93,7 +110,7 @@ export function EmployeeActions({ employee }: EmployeeActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
             <AlertDialogDescription>
-              Это действие нельзя отменить. Сотрудник и все его результаты тестов будут удалены.
+              Это действие нельзя отменить. Сотрудник, его фотография профиля, все документы и результаты тестов будут удалены безвозвратно.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

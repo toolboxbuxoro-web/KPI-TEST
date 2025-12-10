@@ -29,6 +29,7 @@ export default function AddQuestionForm({ testId }: { testId: string }) {
       testId,
       text: "",
       questionType: "single",
+      points: 1,
       options: [
         { text: "", isCorrect: false },
         { text: "", isCorrect: false }
@@ -48,13 +49,16 @@ export default function AddQuestionForm({ testId }: { testId: string }) {
       const result = await addQuestion(payload)
       if (result?.error) {
         toast.error("Ошибка валидации")
-        console.error(result.error)
+        if (process.env.NODE_ENV === 'development') {
+          console.error("Question validation error:", result.error)
+        }
       } else {
         toast.success("Вопрос добавлен")
         form.reset({
           testId,
           text: "",
           questionType: "single",
+          points: 1,
           options: [
             { text: "", isCorrect: false },
             { text: "", isCorrect: false }
@@ -127,6 +131,19 @@ export default function AddQuestionForm({ testId }: { testId: string }) {
                 <SelectItem value="multi">Множественный выбор</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Баллы за вопрос</Label>
+            <Input 
+              type="number" 
+              min="1" 
+              {...form.register("points", { valueAsNumber: true })} 
+              placeholder="1" 
+            />
+            {form.formState.errors.points && (
+              <p className="text-sm text-destructive">{form.formState.errors.points.message}</p>
+            )}
           </div>
 
           <div className="space-y-3">

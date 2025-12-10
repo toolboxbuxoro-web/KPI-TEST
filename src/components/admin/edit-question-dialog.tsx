@@ -27,7 +27,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import { Pencil, Trash2, Plus } from "lucide-react"
+import { Pencil, Trash2, Plus, Loader2 } from "lucide-react"
 import { UploadButton } from "@/lib/uploadthing"
 
 type QuestionFormValues = z.infer<typeof questionSchema>
@@ -39,6 +39,7 @@ interface EditQuestionDialogProps {
     text: string
     imageUrl?: string | null
     questionType: "single" | "multi" | string
+    points?: number
     options: { id: string; text: string; isCorrect: boolean }[]
   }
   trigger?: React.ReactNode
@@ -53,7 +54,8 @@ export function EditQuestionDialog({ testId, question, trigger }: EditQuestionDi
       testId: testId,
       text: question.text,
       imageUrl: question.imageUrl || undefined,
-      questionType: question.questionType as "single" | "multi",
+      questionType: (question.questionType as "single" | "multi") || "single",
+      points: question.points ?? 1,
       options: question.options.map(o => ({ text: o.text, isCorrect: o.isCorrect })),
     },
   })
@@ -165,6 +167,25 @@ export function EditQuestionDialog({ testId, question, trigger }: EditQuestionDi
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="points"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Баллы за вопрос</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="number" 
+                      min="1" 
+                      {...field} 
+                      onChange={(e) => field.onChange(parseInt(e.target.value) || 0)} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <FormLabel>Варианты ответов</FormLabel>
@@ -222,7 +243,10 @@ export function EditQuestionDialog({ testId, question, trigger }: EditQuestionDi
               <FormMessage>{form.formState.errors.options?.root?.message}</FormMessage>
             </div>
 
-            <Button type="submit" className="w-full">Сохранить изменения</Button>
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Сохранить изменения
+            </Button>
           </form>
         </Form>
       </DialogContent>

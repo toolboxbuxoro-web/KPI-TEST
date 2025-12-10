@@ -71,7 +71,22 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
+  // Start with defaultOpen to match server-side rendering, then sync with cookie on mount
   const [_open, _setOpen] = React.useState(defaultOpen)
+  
+  // Sync with cookie after mount to avoid hydration mismatch
+  React.useEffect(() => {
+    if (typeof document === 'undefined') return
+    const cookies = document.cookie.split(';')
+    const sidebarCookie = cookies.find(c => c.trim().startsWith(`${SIDEBAR_COOKIE_NAME}=`))
+    if (sidebarCookie) {
+      const value = sidebarCookie.split('=')[1]
+      const cookieState = value === 'true'
+      if (cookieState !== defaultOpen && openProp === undefined) {
+        _setOpen(cookieState)
+      }
+    }
+  }, [defaultOpen, openProp])
   const open = openProp ?? _open
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -90,7 +105,11 @@ function SidebarProvider({
 
   // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
-    return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
+    if (isMobile) {
+      setOpenMobile((open) => !open)
+    } else {
+      setOpen((open) => !open)
+    }
   }, [isMobile, setOpen, setOpenMobile])
 
   // Adds a keyboard shortcut to toggle the sidebar.
@@ -170,7 +189,7 @@ function Sidebar({
       <div
         data-slot="sidebar"
         className={cn(
-          "bg-sidebar text-sidebar-foreground flex h-full w-(--sidebar-width) flex-col",
+          "bg-sidebar text-sidebar-foreground flex h-full w-[var(--sidebar-width)] flex-col",
           className
         )}
         {...props}
@@ -180,6 +199,7 @@ function Sidebar({
     )
   }
 
+  // Mobile: use Sheet component
   if (isMobile) {
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
@@ -187,7 +207,7 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
+          className="bg-sidebar text-sidebar-foreground w-[var(--sidebar-width)] p-0 [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
@@ -205,46 +225,82 @@ function Sidebar({
     )
   }
 
+  // Desktop: fixed sidebar
+  const isCollapsed = state === "collapsed"
+  const isOffcanvas = collapsible === "offcanvas" && isCollapsed
+  const isIconMode = collapsible === "icon" && isCollapsed
+
+  // Determine data-collapsible attribute
+  let dataCollapsible = ""
+  if (isOffcanvas) {
+    dataCollapsible = "offcanvas"
+  } else if (isIconMode) {
+    dataCollapsible = "icon"
+  }
+
+  // Calculate sidebar width based on state
+  const sidebarWidth = isOffcanvas 
+    ? "0" 
+    : isIconMode 
+      ? "var(--sidebar-width-icon)" 
+      : "var(--sidebar-width)"
+
+  const gapWidth = isOffcanvas 
+    ? "0" 
+    : isIconMode 
+      ? "var(--sidebar-width-icon)" 
+      : "var(--sidebar-width)"
+  
+  // For floating/inset variants, add padding to width
+  const finalSidebarWidth = (variant === "floating" || variant === "inset") && isIconMode
+    ? "calc(var(--sidebar-width-icon) + 1rem)"
+    : sidebarWidth
+
   return (
     <div
-      className="group peer text-sidebar-foreground hidden md:block"
+      className="group peer text-sidebar-foreground block"
       data-state={state}
-      data-collapsible={state === "collapsed" ? collapsible : ""}
+      data-collapsible={dataCollapsible}
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
     >
-      {/* This is what handles the sidebar gap on desktop */}
+      {/* Gap spacer for desktop layout */}
       <div
         data-slot="sidebar-gap"
-        className={cn(
-          "relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear",
-          "group-data-[collapsible=offcanvas]:w-0",
-          "group-data-[side=right]:rotate-180",
-          variant === "floating" || variant === "inset"
-            ? "group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)"
-        )}
+        className="relative bg-transparent transition-[width] duration-200 ease-linear"
+        style={{
+          width: gapWidth,
+        } as React.CSSProperties}
       />
+      
+      {/* Sidebar container */}
       <div
         data-slot="sidebar-container"
         className={cn(
-          "fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex",
-          side === "left"
-            ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
-            : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
-          // Adjust the padding for floating and inset variants.
-          variant === "floating" || variant === "inset"
-            ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-            : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
+          "fixed inset-y-0 z-10 h-svh transition-[left,right,width] duration-200 ease-linear",
+          "flex",
+          side === "left" ? "left-0" : "right-0",
+          isOffcanvas && side === "left" && "left-[calc(var(--sidebar-width)*-1)]",
+          isOffcanvas && side === "right" && "right-[calc(var(--sidebar-width)*-1)]",
+          variant === "floating" || variant === "inset" ? "p-2" : "",
+          !isOffcanvas && !isIconMode && side === "left" && "border-r",
+          !isOffcanvas && !isIconMode && side === "right" && "border-l",
           className
         )}
+        style={{
+          width: finalSidebarWidth,
+        } as React.CSSProperties}
         {...props}
       >
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="bg-sidebar group-data-[variant=floating]:border-sidebar-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          className={cn(
+            "bg-sidebar flex h-full w-full flex-col",
+            variant === "floating" && "rounded-lg border border-sidebar-border shadow-sm",
+            className
+          )}
         >
           {children}
         </div>

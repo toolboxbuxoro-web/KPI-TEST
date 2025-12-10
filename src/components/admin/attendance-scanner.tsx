@@ -145,7 +145,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
 
   const fetchLogs = async () => {
     try {
-      const logs = await getAllTodayAttendance()
+      const logs = await getAllTodayAttendance(selectedStoreId || undefined)
       setRecentLogs(logs)
     } catch (error) {
       console.error("Failed to fetch logs", error)
@@ -156,11 +156,14 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
     fetchLogs()
     const interval = setInterval(fetchLogs, 30000)
     return () => clearInterval(interval)
-  }, [])
+  }, [selectedStoreId])
+
+  // Cooldown map to prevent spamming
+  const [lastScanned, setLastScanned] = useState<Record<string, number>>({})
 
   // Main Loop
   const processFrame = async () => {
-    if (!webcamRef.current || !modelsLoaded) return
+    if (!webcamRef.current || !modelsLoaded || isLoading || step !== 'scanning') return
     
     const imageSrc = webcamRef.current.getScreenshot()
     if (!imageSrc) return
@@ -174,9 +177,9 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             return
         }
 
-        // Check Quality
+         // Check Quality
         const box = detection.detection.box
-        if (box.width < 150) { // Slightly smaller faces allowed
+        if (box.width < 150) {
             setVerificationStatus('Подойдите ближе')
             return
         }
@@ -185,11 +188,22 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             const match = faceMatcher.findBestMatch(detection.descriptor)
             
             if (match.label !== 'unknown') {
+                // Cooldown check
+                const now = Date.now()
+                if (lastScanned[match.label] && now - lastScanned[match.label] < 60000) {
+                   setVerificationStatus(`Уже отмечено: подождите...`)
+                   return
+                }
+
                 setVerificationStatus(`Распознан: ${match.label}`)
                 const emp = await getEmployee(match.label)
                 if (emp && !('error' in emp)) {
                     setEmployee(emp)
                     setVerificationStatus(`Распознан: ${emp.firstName} ${emp.lastName}`)
+                    
+                    // Update cooldown immediately to prevent double-fire
+                    setLastScanned(prev => ({...prev, [match.label]: now}))
+                    
                     await processAttendance(emp)
                 }
             } else {

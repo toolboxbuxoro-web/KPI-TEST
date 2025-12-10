@@ -1,29 +1,7 @@
 import type { NextAuthConfig } from "next-auth"
 import type { Role } from "@/lib/permissions"
 
-// Расширение типов
-declare module "next-auth" {
-  interface User {
-    role?: Role
-    storeId?: string | null
-  }
-  interface Session {
-    user: {
-      id?: string
-      email?: string | null
-      name?: string | null
-      role?: Role
-      storeId?: string | null
-    }
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    role?: Role
-    storeId?: string | null
-  }
-}
+// Types are now in src/next-auth.d.ts
 
 export const authConfig = {
   pages: {

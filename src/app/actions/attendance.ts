@@ -99,18 +99,24 @@ export async function getTodayAttendance(employeeId: string) {
   return records
 }
 
-export async function getAllTodayAttendance() {
+export async function getAllTodayAttendance(storeId?: string) {
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
   
-    const records = await prisma.attendanceRecord.findMany({
-      where: {
+    const whereClause: any = {
         checkIn: {
           gte: startOfDay,
           lt: endOfDay
         }
-      },
+    }
+
+    if (storeId) {
+        whereClause.storeId = storeId
+    }
+
+    const records = await prisma.attendanceRecord.findMany({
+      where: whereClause,
       include: {
         employee: true
       },

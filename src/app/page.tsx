@@ -1,36 +1,34 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ArrowRight, Shield, Users } from "lucide-react"
+import { auth } from "@/auth"
+import { HomeHeader } from "@/components/home-header"
+import { AttendanceFlow } from "@/components/attendance-flow"
+import { SessionProvider } from "next-auth/react"
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth()
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800 flex flex-col items-center justify-center p-4 text-center">
-      <div className="max-w-3xl space-y-8">
-        <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-6xl">
-          Toolbox <span className="text-blue-600">Control</span>
-        </h1>
-        <p className="text-xl text-gray-500 dark:text-gray-400">
-          Система оценки эффективности сотрудников. Создавайте тесты, отслеживайте результаты и повышайте квалификацию команды.
-        </p>
+    <div className="min-h-screen bg-background neo-pattern flex flex-col">
+       {/* Use SessionProvider here for client components if needed, though RootLayout usually handles it. 
+           But passing session to provider inside might be better if RootProviders doesn't wrap session.
+           Actually Providers usually wraps SessionProvider. 
+           Assuming Providers in layout does it.
+       */}
+      <HomeHeader user={session?.user} />
+      
+      <main className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+        {/* Background decorative elements */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] opacity-20 pointer-events-none" />
         
-        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
-          <Link href="/admin">
-            <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-lg gap-2">
-              <Shield className="w-5 h-5" />
-              Вход для Администратора
-            </Button>
-          </Link>
-          {/* In a real app, employees might have a separate login or use a magic link. 
-              For this demo, we'll link to a demo employee if they exist, or just show a placeholder. 
-          */}
-          <Link href="/admin/employees">
-            <Button variant="outline" size="lg" className="w-full sm:w-auto h-12 px-8 text-lg gap-2">
-              <Users className="w-5 h-5" />
-              Список сотрудников (Demo)
-            </Button>
-          </Link>
+        <div className="max-w-4xl w-full relative z-10">
+           <AttendanceFlow />
         </div>
-      </div>
+      </main>
+
+      <footer className="py-6 text-center text-sm text-muted-foreground bg-background/50 backdrop-blur-sm border-t border-white/5">
+        © {new Date().getFullYear()} Toolbox Control System. All rights reserved.
+      </footer>
     </div>
   )
 }
+
+

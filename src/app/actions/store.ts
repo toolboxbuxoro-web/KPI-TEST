@@ -143,7 +143,13 @@ export async function getStoreById(id: string) {
 
   return store
 }
-
+export async function getStoreName(id: string) {
+  const store = await prisma.store.findUnique({
+    where: { id },
+    select: { name: true }
+  })
+  return store?.name || null
+}
 export async function getStoreWithTodayStats(id: string) {
   const session = await auth()
   if (!session?.user) throw new Error("Unauthorized")

@@ -32,7 +32,14 @@ interface EmployeeActionsProps {
     id: string
     firstName: string
     lastName: string
+    middleName?: string | null
+    phone?: string | null
+    email?: string | null
+    birthDate?: Date | null
     position: string
+    role?: string // Prisma enum is roughly string
+    storeId?: string | null
+    isActive?: boolean
     imageUrl?: string | null
     documents?: {
       id: string

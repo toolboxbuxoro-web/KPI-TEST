@@ -12,7 +12,7 @@ interface ChartData {
 export function DashboardCharts({ data }: { data: ChartData[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Card className="col-span-2">
+      <Card className="col-span-2 neo-card neo-float">
         <CardHeader>
           <CardTitle>Средний KPI по тестам</CardTitle>
         </CardHeader>
@@ -41,13 +41,13 @@ export function DashboardCharts({ data }: { data: ChartData[] }) {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload
                       return (
-                        <div className="rounded-lg border bg-background p-2 shadow-sm">
+                        <div className="rounded-lg border bg-background/90 backdrop-blur-md p-2 shadow-sm border-white/10">
                           <div className="grid grid-cols-2 gap-2">
                             <div className="flex flex-col">
                               <span className="text-[0.70rem] uppercase text-muted-foreground">
                                 Тест
                               </span>
-                              <span className="font-bold text-muted-foreground">
+                              <span className="font-bold text-foreground">
                                 {data.name}
                               </span>
                             </div>
@@ -78,7 +78,7 @@ export function DashboardCharts({ data }: { data: ChartData[] }) {
                   {data.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={entry.score >= 80 ? '#22c55e' : entry.score >= 50 ? '#eab308' : '#ef4444'} 
+                      fill={entry.score >= 80 ? '#22c55e' : entry.score >= 50 ? '#eab308' : '#EE1C23'} 
                     />
                   ))}
                 </Bar>

@@ -14,10 +14,10 @@ export function StoreLocationMap({ latitude, longitude, radiusMeters }: StoreLoc
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<L.Map | null>(null)
 
+  // 1. Initialize map (ONCE)
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return
 
-    // Initialize map
     const map = L.map(mapRef.current, {
       center: [latitude, longitude],
       zoom: 16,
@@ -29,52 +29,23 @@ export function StoreLocationMap({ latitude, longitude, radiusMeters }: StoreLoc
       touchZoom: false,
     })
 
-    // Add tile layer (OpenStreetMap)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
     }).addTo(map)
 
-    // Custom marker icon
-    const customIcon = L.divIcon({
-      className: 'custom-marker',
-      html: `<div style="
-        width: 20px;
-        height: 20px;
-        background: linear-gradient(135deg, #8b5cf6, #6d28d9);
-        border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 2px 8px rgba(109, 40, 217, 0.5);
-      "></div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    })
-
-    // Add marker
-    L.marker([latitude, longitude], { icon: customIcon }).addTo(map)
-
-    // Add radius circle
-    L.circle([latitude, longitude], {
-      radius: radiusMeters,
-      color: '#8b5cf6',
-      fillColor: '#8b5cf6',
-      fillOpacity: 0.15,
-      weight: 2,
-      opacity: 0.6,
-    }).addTo(map)
-
-    // Fit map to show the radius
-    const bounds = L.latLng(latitude, longitude).toBounds(radiusMeters * 2.5)
-    map.fitBounds(bounds)
-
     mapInstanceRef.current = map
 
     return () => {
-      map.remove()
-      mapInstanceRef.current = null
+      // Small delay to ensure React finishes its DOM updates before Leaflet cleanup
+      // This helps avoid "removeChild" errors
+      setTimeout(() => {
+        map.remove()
+        mapInstanceRef.current = null
+      }, 0)
     }
-  }, [latitude, longitude, radiusMeters])
+  }, []) // Empty dependency array!
 
-  // Update map when props change
+  // 2. Update map when props change
   useEffect(() => {
     if (!mapInstanceRef.current) return
 
@@ -87,9 +58,6 @@ export function StoreLocationMap({ latitude, longitude, radiusMeters }: StoreLoc
       }
     })
 
-    // Re-center
-    map.setView([latitude, longitude], map.getZoom())
-
     // Custom marker icon
     const customIcon = L.divIcon({
       className: 'custom-marker',
@@ -118,9 +86,12 @@ export function StoreLocationMap({ latitude, longitude, radiusMeters }: StoreLoc
       opacity: 0.6,
     }).addTo(map)
 
-    // Fit bounds
+    // Fit bounds and center
     const bounds = L.latLng(latitude, longitude).toBounds(radiusMeters * 2.5)
     map.fitBounds(bounds)
+    // Force center update as fitBounds might not be exact enough for center
+    map.setView([latitude, longitude])
+
   }, [latitude, longitude, radiusMeters])
 
   return (

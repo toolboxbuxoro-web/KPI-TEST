@@ -1,8 +1,13 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { z } from "zod"
+import { authConfig } from "./auth.config"
+import prisma from "@/lib/db"
+import bcrypt from "bcryptjs"
+import type { Role } from "@/lib/permissions"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -11,28 +16,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       authorize: async (credentials) => {
         const parsed = z.object({ email: z.string().email(), password: z.string() }).safeParse(credentials);
+        
         if (parsed.success) {
-            // Simple hardcoded admin for now
-            if (parsed.data.email === process.env.ADMIN_EMAIL && parsed.data.password === process.env.ADMIN_PASSWORD) {
-                return { id: "admin", email: parsed.data.email, name: "Admin" }
+            const { email, password } = parsed.data;
+
+            // 1. Check Hardcoded Admin
+            if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
+                return { 
+                  id: "admin", 
+                  email: email, 
+                  name: "Admin",
+                  role: "SUPER_ADMIN" as Role,
+                  storeId: null
+                }
+            }
+
+            // 2. Check Database Employee
+            const employee = await prisma.employee.findUnique({
+                where: { email }
+            })
+
+            if (employee && employee.password) {
+                const passwordsMatch = await bcrypt.compare(password, employee.password);
+                if (passwordsMatch) {
+                     // Check if active
+                     if (!employee.isActive) return null;
+
+                     return {
+                        id: employee.id,
+                        email: employee.email,
+                        name: `${employee.firstName} ${employee.lastName}`,
+                        role: employee.role as Role,
+                        storeId: employee.storeId
+                     }
+                }
             }
         }
         return null
       },
     }),
   ],
-  pages: {
-    signIn: "/login",
-  },
-  callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnAdmin = nextUrl.pathname.startsWith('/admin');
-      if (isOnAdmin) {
-        if (isLoggedIn) return true;
-        return false; // Redirect unauthenticated users to login page
-      }
-      return true;
-    },
-  },
 })

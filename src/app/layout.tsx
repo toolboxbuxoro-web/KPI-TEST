@@ -21,8 +21,13 @@ export const metadata: Metadata = {
   title: "Toolbox Control",
   description: "Система контроля посещаемости сотрудников",
   manifest: "/manifest.json",
-  themeColor: "#a855f7",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
+};
+
+export const viewport = {
+  themeColor: "#EE1C23",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 import { Providers } from "@/components/providers";

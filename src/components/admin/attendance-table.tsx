@@ -111,7 +111,7 @@ export function AttendanceTable({
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableRow className="hover:bg-muted/50 border-white/10">
                     <TableHead className="w-64">Сотрудник</TableHead>
                     <TableHead>Магазин</TableHead>
                     <TableHead>Дата</TableHead>
@@ -123,7 +123,7 @@ export function AttendanceTable({
                 </TableHeader>
                 <TableBody>
                   {records.map((record) => (
-                    <TableRow key={record.id} className="group">
+                    <TableRow key={record.id} className="group hover:bg-muted/50 border-white/10">
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
@@ -158,13 +158,13 @@ export function AttendanceTable({
                         </span>
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline" className="bg-green-500/5 text-green-600 border-green-200 dark:border-green-900">
+                        <Badge variant="outline" className="bg-green-500/5 text-green-600 border-green-200 dark:border-green-900 backdrop-blur-sm">
                           {formatTime(record.checkIn)}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-center">
                         {record.checkOut ? (
-                          <Badge variant="outline" className="bg-orange-500/5 text-orange-600 border-orange-200 dark:border-orange-900">
+                          <Badge variant="outline" className="bg-orange-500/5 text-orange-600 border-orange-200 dark:border-orange-900 backdrop-blur-sm">
                             {formatTime(record.checkOut)}
                           </Badge>
                         ) : (
@@ -184,7 +184,7 @@ export function AttendanceTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
+                            className="h-8 w-8 hover:bg-primary/10 hover:text-primary transition-colors"
                             onClick={() => setEditingRecord(record)}
                           >
                             <Edit2 className="h-4 w-4" />

@@ -5,7 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { AttendanceHistory } from "@/components/admin/attendance-history"
 import { Separator } from "@/components/ui/separator"
-import { Building2, CalendarDays, Clock, Mail, Phone, User } from "lucide-react"
+import { Building2, CalendarDays, Clock, Mail, Phone, User, ScanFace } from "lucide-react"
+import { FaceDescriptorGenerator } from "@/components/admin/face-descriptor-generator"
 
 export default async function EmployeeDetailsPage({
   params,
@@ -78,6 +79,23 @@ export default async function EmployeeDetailsPage({
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Left Column: Stats & Info */}
         <div className="space-y-6">
+            <Card className="overflow-hidden border-0 shadow-lg ring-1 ring-border/50">
+                <CardHeader className="bg-muted/30 pb-4">
+                    <CardTitle className="flex items-center gap-2">
+                        <ScanFace className="h-5 w-5 text-primary" />
+                        Биометрия
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                    <FaceDescriptorGenerator 
+                        employeeId={employee.id}
+                        imageUrl={employee.imageUrl}
+                        hasDescriptor={!!employee.faceDescriptor}
+                        hasConsent={!!employee.consentSignedAt}
+                    />
+                </CardContent>
+            </Card>
+
             <Card className="overflow-hidden border-0 shadow-lg ring-1 ring-border/50">
                 <CardHeader className="bg-muted/30 pb-4">
                     <CardTitle>Информация</CardTitle>

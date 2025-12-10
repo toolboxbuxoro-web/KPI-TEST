@@ -29,6 +29,14 @@ export async function registerAttendance(employeeId: string, type: 'in' | 'out',
             return { error: "Вы уже отметились на вход. Сначала нужно выйти." }
         }
 
+        // Validate storeId if provided
+        if (storeId) {
+            const storeExists = await prisma.store.findUnique({ where: { id: storeId } })
+            if (!storeExists) {
+                return { error: "Магазин не найден или удален. Пожалуйста, сбросьте настройки терминала." }
+            }
+        }
+
         await prisma.attendanceRecord.create({
             data: {
                 employeeId,

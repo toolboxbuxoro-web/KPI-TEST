@@ -6,8 +6,27 @@ import { auth } from "@/auth"
 import { revalidatePath } from "next/cache"
 
 import { utapi } from "@/server/uploadthing"
+import { Role } from "@prisma/client"
 
-export async function createEmployee(data: { firstName: string; lastName: string; position: string; imageUrl?: string }) {
+import bcrypt from "bcryptjs"
+
+// Расширенный интерфейс данных сотрудника
+export interface EmployeeCreateData {
+  firstName: string
+  lastName: string
+  middleName?: string
+  phone?: string
+  email?: string
+  password?: string
+  birthDate?: string // ISO date
+  position: string
+  role?: Role
+  storeId?: string | null
+  isActive?: boolean
+  imageUrl?: string
+}
+
+export async function createEmployee(data: EmployeeCreateData) {
   const session = await auth()
   if (!session?.user) throw new Error("Unauthorized")
 
@@ -16,32 +35,66 @@ export async function createEmployee(data: { firstName: string; lastName: string
     return { error: validated.error.flatten() }
   }
 
-  await prisma.employee.create({
-    data: {
-      ...validated.data,
-      imageUrl: data.imageUrl
-    }
-  })
+  // Хэширование пароля, если предоставлен
+  let passwordHash: string | null = null
+  if (validated.data.password && validated.data.password.length > 0) {
+    passwordHash = await bcrypt.hash(validated.data.password, 10)
+  }
+
+  // Подготовка данных для создания
+  const createData: any = {
+    firstName: validated.data.firstName,
+    lastName: validated.data.lastName,
+    middleName: validated.data.middleName || null,
+    phone: validated.data.phone || null,
+    email: validated.data.email || null,
+    password: passwordHash,
+    birthDate: validated.data.birthDate ? new Date(validated.data.birthDate) : null,
+    position: validated.data.position,
+    role: (validated.data.role as Role) || "EMPLOYEE",
+    storeId: validated.data.storeId || null,
+    isActive: validated.data.isActive ?? true,
+    imageUrl: validated.data.imageUrl || null,
+  }
+
+  await prisma.employee.create({ data: createData })
 
   revalidatePath("/admin/employees")
   return { success: true }
 }
 
-export async function updateEmployee(id: string, data: { firstName: string; lastName: string; position: string; imageUrl?: string }) {
+export async function updateEmployee(id: string, data: Partial<EmployeeCreateData>) {
   const session = await auth()
   if (!session?.user) throw new Error("Unauthorized")
 
-  const validated = employeeSchema.safeParse(data)
+  const validated = employeeSchema.partial().safeParse(data)
   if (!validated.success) {
     return { error: validated.error.flatten() }
   }
 
+  // Подготовка данных для обновления
+  const updateData: any = {}
+  
+  if (validated.data.firstName !== undefined) updateData.firstName = validated.data.firstName
+  if (validated.data.lastName !== undefined) updateData.lastName = validated.data.lastName
+  if (validated.data.middleName !== undefined) updateData.middleName = validated.data.middleName || null
+  if (validated.data.phone !== undefined) updateData.phone = validated.data.phone || null
+  if (validated.data.email !== undefined) updateData.email = validated.data.email || null
+  if (validated.data.birthDate !== undefined) updateData.birthDate = validated.data.birthDate ? new Date(validated.data.birthDate) : null
+  if (validated.data.position !== undefined) updateData.position = validated.data.position
+  if (validated.data.role !== undefined) updateData.role = validated.data.role as Role
+  if (validated.data.storeId !== undefined) updateData.storeId = validated.data.storeId || null
+  if (validated.data.isActive !== undefined) updateData.isActive = validated.data.isActive
+  if (validated.data.imageUrl !== undefined) updateData.imageUrl = validated.data.imageUrl || null
+
+  // Обновление пароля только если он предоставлен и не пустой
+  if (validated.data.password && validated.data.password.length > 0) {
+    updateData.password = await bcrypt.hash(validated.data.password, 10)
+  }
+
   await prisma.employee.update({
     where: { id },
-    data: {
-      ...validated.data,
-      imageUrl: data.imageUrl
-    }
+    data: updateData
   })
 
   revalidatePath("/admin/employees")

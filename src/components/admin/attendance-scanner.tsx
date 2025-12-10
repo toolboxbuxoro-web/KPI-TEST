@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { Loader2, ScanLine, UserCheck, UserMinus, Clock, Camera, RefreshCw, ScanFace, AlertCircle, CheckCircle2, XCircle, Store } from 'lucide-react'
+import { Loader2, ScanLine, UserCheck, UserMinus, Clock, Camera, RefreshCw, ScanFace, AlertCircle, CheckCircle2, XCircle, Store, Lock, LogOut } from 'lucide-react'
 import Webcam from 'react-webcam'
 import * as faceapi from 'face-api.js'
 
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { registerAttendance, getAllTodayAttendance } from '@/app/actions/attendance'
 import { getEmployee } from '@/app/actions/employee'
 import { getAllFaceDescriptors } from '@/app/actions/face-recognition'
-import { getAllStores } from '@/app/actions/store'
+import { getAllStores, getStoreName } from '@/app/actions/store'
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -26,10 +26,26 @@ interface StoreOption {
 
 type ScanStep = 'loading' | 'scanning' | 'success'
 
-export function AttendanceScanner() {
+interface AttendanceScannerProps {
+  preselectedStoreId?: string
+  onResetStore?: () => void
+}
+
+export function AttendanceScanner({ preselectedStoreId, onResetStore }: AttendanceScannerProps) {
+  const [fetchedStoreName, setFetchedStoreName] = useState<string | null>(null)
   const [scanMode, setScanMode] = useState<'in' | 'out' | null>(null)
   const [stores, setStores] = useState<StoreOption[]>([])
-  const [selectedStoreId, setSelectedStoreId] = useState<string>('')
+
+  // Fetch individual store name if preselected (fallback)
+  useEffect(() => {
+    if (preselectedStoreId) {
+        getStoreName(preselectedStoreId).then(name => {
+            if (name) setFetchedStoreName(name)
+        })
+    }
+  }, [preselectedStoreId])
+
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(preselectedStoreId || '')
   const [step, setStep] = useState<ScanStep>('loading')
   const [isLoading, setIsLoading] = useState(false)
   const [recentLogs, setRecentLogs] = useState<any[]>([])
@@ -42,6 +58,16 @@ export function AttendanceScanner() {
   const webcamRef = useRef<Webcam>(null)
   const [faceMatcher, setFaceMatcher] = useState<faceapi.FaceMatcher | null>(null)
   const [loadingProgress, setLoadingProgress] = useState(0)
+
+
+  useEffect(() => {
+     setSelectedStoreId(preselectedStoreId || '')
+     if (preselectedStoreId) {
+        // ... any side effects for having a store
+     } else {
+        setFetchedStoreName(null)
+     }
+  }, [preselectedStoreId])
 
   // Load models and employees on mount
   useEffect(() => {
@@ -89,7 +115,7 @@ export function AttendanceScanner() {
         setLoadingProgress(90)
 
         if (labeledDescriptors.length > 0) {
-            setFaceMatcher(new faceapi.FaceMatcher(labeledDescriptors, 0.4))
+            setFaceMatcher(new faceapi.FaceMatcher(labeledDescriptors, 0.45)) // Relaxed from 0.4 for better usability
             setVerificationStatus(`Система готова (${labeledDescriptors.length} сотр.)`)
             setStep('scanning')
         } else {
@@ -101,7 +127,7 @@ export function AttendanceScanner() {
         try {
           const storesList = await getAllStores()
           setStores(storesList)
-          if (storesList.length > 0) {
+          if (!preselectedStoreId && storesList.length > 0) {
             setSelectedStoreId(storesList[0].id)
           }
         } catch (e) {
@@ -115,7 +141,7 @@ export function AttendanceScanner() {
       }
     }
     initSystem()
-  }, [])
+  }, [preselectedStoreId])
 
   const fetchLogs = async () => {
     try {
@@ -141,7 +167,7 @@ export function AttendanceScanner() {
 
     try {
         const webcamImg = await faceapi.fetchImage(imageSrc)
-        const detection = await faceapi.detectSingleFace(webcamImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })).withFaceLandmarks().withFaceDescriptor()
+        const detection = await faceapi.detectSingleFace(webcamImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })).withFaceLandmarks().withFaceDescriptor()
 
         if (!detection) {
             if (step === 'scanning') setVerificationStatus('Поиск лица...')
@@ -150,7 +176,7 @@ export function AttendanceScanner() {
 
         // Check Quality
         const box = detection.detection.box
-        if (box.width < 200) {
+        if (box.width < 150) { // Slightly smaller faces allowed
             setVerificationStatus('Подойдите ближе')
             return
         }
@@ -180,7 +206,7 @@ export function AttendanceScanner() {
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (modelsLoaded && step === 'scanning' && scanMode) {
-        interval = setInterval(processFrame, 500) // 2 FPS
+        interval = setInterval(processFrame, 100) // 10 FPS for smoother scanning
     }
     return () => clearInterval(interval)
   }, [modelsLoaded, step, faceMatcher, scanMode])
@@ -233,34 +259,65 @@ export function AttendanceScanner() {
   return (
     <div className="grid gap-8 lg:grid-cols-12 lg:h-[calc(100vh-10rem)]">
       {/* Left Panel: Scanner */}
-      <Card className="lg:col-span-7 flex flex-col overflow-hidden border-0 shadow-2xl bg-gradient-to-b from-background to-muted/20 ring-1 ring-border/50">
-        <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10">
-          <div className="flex items-center justify-between">
+      <Card className="lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float">
+        <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10 flex flex-row items-center justify-between h-auto min-h-[5rem] px-6">
             <div className="space-y-1">
-                <CardTitle className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-                    <ScanFace className="h-6 w-6 text-primary" />
-                    Smart Scanner
-                </CardTitle>
-                <CardDescription className="text-base">
-                    Система контроля доступа и учета рабочего времени
-                </CardDescription>
+                {preselectedStoreId ? (
+                    <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                        <CardTitle className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                            <Store className="h-8 w-8" />
+                            {stores.find(s => s.id === selectedStoreId)?.name || fetchedStoreName || (stores.length === 0 ? 'Загрузка магазина...' : 'Магазин не найден')}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2 text-base mt-1">
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary w-fit">
+                                <Lock className="h-3 w-3" />
+                                <span className="text-xs font-semibold">Терминал активен</span>
+                            </div>
+                            <span className="text-muted-foreground text-sm">Система учета времени</span>
+                        </CardDescription>
+                    </div>
+                ) : (
+                    <div>
+                        <CardTitle className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                             <ScanFace className="h-6 w-6 text-muted-foreground" />
+                             Настройка терминала
+                        </CardTitle>
+                        <CardDescription>
+                            Выберите магазин для начала работы
+                        </CardDescription>
+                    </div>
+                )}
             </div>
-            <div className="flex items-center gap-2">
-                <Store className="h-4 w-4 text-muted-foreground" />
-                <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                  <SelectTrigger className="w-[200px] bg-muted/50 border">
-                    <SelectValue placeholder="Выберите магазин" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stores.map((store) => (
-                      <SelectItem key={store.id} value={store.id}>
-                        {store.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+            <div className="flex items-center gap-4">
+                {preselectedStoreId ? (
+                     <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => {
+                            setSelectedStoreId('')
+                            if (onResetStore) onResetStore()
+                        }} 
+                        className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors" 
+                        title="Выйти из режима терминала"
+                     >
+                        <LogOut className="h-5 w-5" />
+                     </Button>
+                ) : (
+                    <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                      <SelectTrigger className="w-[200px] bg-background border-input shadow-sm">
+                        <SelectValue placeholder="Выберите магазин" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {stores.map((store) => (
+                          <SelectItem key={store.id} value={store.id}>
+                            {store.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                )}
             </div>
-          </div>
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col p-0 relative bg-black/5 dark:bg-black/40">
@@ -278,15 +335,10 @@ export function AttendanceScanner() {
             </div>
           ) : !scanMode ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 gap-8 animate-in fade-in duration-500">
-                <div className="text-center space-y-2">
-                    <h2 className="text-3xl font-bold tracking-tight">Выберите действие</h2>
-                    <p className="text-muted-foreground text-lg">Нажмите соответствующую кнопку для начала сканирования</p>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-6 w-full max-w-2xl">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl h-full max-h-[400px]">
                     <Button 
                         variant="outline" 
-                        className="h-64 flex flex-col gap-6 hover:bg-green-500/5 hover:border-green-500/50 hover:text-green-600 dark:hover:text-green-400 transition-all group border-2 rounded-2xl"
+                        className="h-full flex flex-col gap-6 hover:bg-green-500/5 hover:border-green-500/50 hover:text-green-600 dark:hover:text-green-400 transition-all group border-2 rounded-2xl"
                         onClick={() => setScanMode('in')}
                     >
                         <div className="p-6 rounded-full bg-green-100 dark:bg-green-900/20 group-hover:scale-110 transition-transform duration-300">
@@ -300,7 +352,7 @@ export function AttendanceScanner() {
 
                     <Button 
                         variant="outline" 
-                        className="h-64 flex flex-col gap-6 hover:bg-orange-500/5 hover:border-orange-500/50 hover:text-orange-600 dark:hover:text-orange-400 transition-all group border-2 rounded-2xl"
+                        className="h-full flex flex-col gap-6 hover:bg-orange-500/5 hover:border-orange-500/50 hover:text-orange-600 dark:hover:text-orange-400 transition-all group border-2 rounded-2xl"
                         onClick={() => setScanMode('out')}
                     >
                         <div className="p-6 rounded-full bg-orange-100 dark:bg-orange-900/20 group-hover:scale-110 transition-transform duration-300">
@@ -405,7 +457,7 @@ export function AttendanceScanner() {
       </Card>
 
       {/* Right Panel: Recent Activity */}
-      <Card className="lg:col-span-5 flex flex-col h-full border-0 shadow-xl ring-1 ring-border/50">
+      <Card className="lg:col-span-5 flex flex-col h-full neo-card neo-float">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />

@@ -12,14 +12,14 @@ export default async function AuditPage() {
     <div className="space-y-8">
       <h2 className="text-3xl font-bold tracking-tight">Аудит действий</h2>
 
-      <Card>
+      <Card className="neo-card neo-float">
         <CardHeader>
           <CardTitle>Последние действия</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-muted/50 border-white/10">
                 <TableHead>Время</TableHead>
                 <TableHead>Пользователь</TableHead>
                 <TableHead>Действие</TableHead>
@@ -29,7 +29,7 @@ export default async function AuditPage() {
             </TableHeader>
             <TableBody>
               {logs.map((log) => (
-                <TableRow key={log.id}>
+                <TableRow key={log.id} className="hover:bg-muted/50 border-white/10">
                   <TableCell className="whitespace-nowrap">
                     {log.createdAt.toLocaleString("ru-RU")}
                   </TableCell>
@@ -41,6 +41,13 @@ export default async function AuditPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {logs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground h-24">
+                    Записей аудита не найдено
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

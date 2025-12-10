@@ -7,6 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Роли пользователей
+enum Role {
+  SUPER_ADMIN    // Главный админ - полный доступ
+  STORE_MANAGER  // Менеджер магазина - управление своим магазином
+  EMPLOYEE       // Сотрудник - только личный кабинет
+}
+
 // Store model for managing multiple locations
 model Store {
   id            String             @id @default(cuid())
@@ -21,6 +28,7 @@ model Store {
   createdAt     DateTime           @default(now())
   updatedAt     DateTime           @updatedAt
   attendance    AttendanceRecord[]
+  employees     Employee[]          // Сотрудники магазина
 
   @@index([name])
   @@index([isActive])
@@ -29,18 +37,53 @@ model Store {
 model Employee {
   id                  String                @id @default(cuid())
   employeeCode        String?               @unique // For PWA check-in
+  
+  // Расширенное ФИО
   firstName           String
   lastName            String
-  position            String
+  middleName          String?               // Отчество
+  
+  // Контакты
+  phone               String?
+  email               String?               @unique
+  password            String?               // Хэш пароля
+  
+  // Персональные данные
+  birthDate           DateTime?
+  
+  // Должность и роль
+  position            String                // Строковая должность для отображения
+  role                Role                  @default(EMPLOYEE)
+  
+  // Привязка к магазину
+  storeId             String?
+  store               Store?                @relation(fields: [storeId], references: [id])
+  
+  // Статус
+  isActive            Boolean               @default(true)
+  hiredAt             DateTime              @default(now())
+  firedAt             DateTime?
+  
+  // Системные поля
   createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  
+  // Биометрия
   imageUrl            String?
   faceDescriptor      Json?                 // Float32Array[128] as JSON
   descriptorUpdatedAt DateTime?
   consentSignedAt     DateTime?             // GDPR: biometric consent date
+  
+  // Связи
   attendance          AttendanceRecord[]
   documents           EmployeeDocument[]
   sessions            EmployeeTestSession[]
   assignments         TestAssignment[]
+
+  @@index([storeId])
+  @@index([role])
+  @@index([isActive])
+  @@index([email])
 }
 
 model AttendanceRecord {

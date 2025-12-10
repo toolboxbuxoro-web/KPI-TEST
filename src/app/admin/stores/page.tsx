@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2 } from 'lucide-react'
+import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2, QrCode as QrCodeIcon, Download } from 'lucide-react'
+import QRCode from "react-qr-code"
 
 // Dynamic import for Leaflet map (SSR incompatible)
 const StoreLocationMap = dynamic(
@@ -53,8 +54,8 @@ import {
 interface StoreFormData {
   name: string
   address: string
-  latitude: number | null
-  longitude: number | null
+  latitude: string
+  longitude: string
   radiusMeters: number
   workStartHour: number
   workEndHour: number
@@ -67,15 +68,18 @@ export default function StoresPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingStore, setEditingStore] = useState<any>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
   const [storeToDelete, setStoreToDelete] = useState<any>(null)
+  const [qrDialogOpen, setQrDialogOpen] = useState(false)
+  const [qrStore, setQrStore] = useState<any>(null)
   const [isGettingLocation, setIsGettingLocation] = useState(false)
   const [geoError, setGeoError] = useState<string | null>(null)
   
   const [formData, setFormData] = useState<StoreFormData>({
     name: '',
     address: '',
-    latitude: null,
-    longitude: null,
+    latitude: '',
+    longitude: '',
     radiusMeters: 100,
     workStartHour: 8,
     workEndHour: 18,
@@ -103,8 +107,8 @@ export default function StoresPage() {
     setFormData({
       name: '',
       address: '',
-      latitude: null,
-      longitude: null,
+      latitude: '',
+      longitude: '',
       radiusMeters: 100,
       workStartHour: 8,
       workEndHour: 18,
@@ -119,8 +123,8 @@ export default function StoresPage() {
     setFormData({
       name: store.name,
       address: store.address || '',
-      latitude: store.latitude ?? null,
-      longitude: store.longitude ?? null,
+      latitude: store.latitude ? String(store.latitude) : '',
+      longitude: store.longitude ? String(store.longitude) : '',
       radiusMeters: store.radiusMeters ?? 100,
       workStartHour: store.workStartHour,
       workEndHour: store.workEndHour,
@@ -144,8 +148,8 @@ export default function StoresPage() {
       (position) => {
         setFormData(prev => ({
           ...prev,
-          latitude: Math.round(position.coords.latitude * 1000000) / 1000000,
-          longitude: Math.round(position.coords.longitude * 1000000) / 1000000
+          latitude: String(Math.round(position.coords.latitude * 1000000) / 1000000),
+          longitude: String(Math.round(position.coords.longitude * 1000000) / 1000000)
         }))
         setIsGettingLocation(false)
         toast.success('Местоположение определено')
@@ -171,9 +175,27 @@ export default function StoresPage() {
   }, [])
 
   // Coordinate validation
-  const isValidLatitude = (lat: number | null) => lat === null || (lat >= -90 && lat <= 90)
-  const isValidLongitude = (lng: number | null) => lng === null || (lng >= -180 && lng <= 180)
-  const hasValidCoordinates = formData.latitude !== null && formData.longitude !== null && 
+  const getValidCoordinate = (val: string): number | null => {
+      const num = parseFloat(val.replace(',', '.'))
+      return !isNaN(num) ? num : null
+  }
+
+  const isValidLatitude = (latStr: string) => {
+      if (!latStr) return true // empty is OK for UI unless required
+      const val = getValidCoordinate(latStr)
+      return val !== null && val >= -90 && val <= 90
+  }
+  
+  const isValidLongitude = (lngStr: string) => {
+      if (!lngStr) return true
+      const val = getValidCoordinate(lngStr)
+      return val !== null && val >= -180 && val <= 180
+  }
+
+  const latNum = getValidCoordinate(formData.latitude)
+  const lngNum = getValidCoordinate(formData.longitude)
+  
+  const hasValidCoordinates = latNum !== null && lngNum !== null && 
     isValidLatitude(formData.latitude) && isValidLongitude(formData.longitude)
 
   const handleSubmit = async () => {
@@ -183,11 +205,17 @@ export default function StoresPage() {
     }
 
     try {
+      const payload = {
+        ...formData,
+        latitude: getValidCoordinate(formData.latitude),
+        longitude: getValidCoordinate(formData.longitude)
+      }
+
       if (editingStore) {
-        await updateStore(editingStore.id, formData)
+        await updateStore(editingStore.id, payload)
         toast.success('Магазин обновлен')
       } else {
-        await createStore(formData)
+        await createStore(payload)
         toast.success('Магазин создан')
       }
       setDialogOpen(false)
@@ -217,6 +245,46 @@ export default function StoresPage() {
     }
   }
 
+  const handleDownloadQr = () => {
+    const svg = document.getElementById("store-qr-code")
+    if (!svg) {
+        toast.error("QR код не найден")
+        return
+    }
+
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const canvas = document.createElement("canvas")
+    const ctx = canvas.getContext("2d")
+    const img = new Image()
+    
+    img.onload = () => {
+      canvas.width = img.width + 40
+      canvas.height = img.height + 60 // More space for text
+      if (ctx) {
+         ctx.fillStyle = "white"
+         ctx.fillRect(0, 0, canvas.width, canvas.height)
+         ctx.drawImage(img, 20, 20)
+         
+         // Add Store Name
+         if (qrStore) {
+             ctx.font = "bold 20px Arial"
+             ctx.fillStyle = "black"
+             ctx.textAlign = "center"
+             ctx.fillText(qrStore.name, canvas.width / 2, canvas.height - 15)
+         }
+         
+         const pngFile = canvas.toDataURL("image/png")
+         const downloadLink = document.createElement("a")
+         downloadLink.download = `QR-${qrStore?.name || 'Store'}.png`
+         downloadLink.href = pngFile
+         downloadLink.click()
+         toast.success("QR код скачан")
+      }
+    }
+    
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)))
+  }
+
   return (
     <div className="container mx-auto py-10">
       <div className="flex items-center justify-between mb-8">
@@ -243,7 +311,7 @@ export default function StoresPage() {
               </DialogDescription>
             </DialogHeader>
             
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 flex-1 overflow-y-auto px-1">
               <div className="space-y-2">
                 <Label htmlFor="name">Название *</Label>
                 <Input
@@ -300,15 +368,10 @@ export default function StoresPage() {
                     <Label htmlFor="latitude" className="text-xs">Широта</Label>
                     <Input
                       id="latitude"
-                      type="number"
-                      step="0.000001"
-                      min={-90}
-                      max={90}
-                      value={formData.latitude ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                        setFormData(prev => ({ ...prev, latitude: val }))
-                      }}
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.latitude}
+                      onChange={(e) => setFormData(prev => ({ ...prev, latitude: e.target.value }))}
                       placeholder="39.7749"
                       className={!isValidLatitude(formData.latitude) ? 'border-destructive' : ''}
                     />
@@ -320,15 +383,10 @@ export default function StoresPage() {
                     <Label htmlFor="longitude" className="text-xs">Долгота</Label>
                     <Input
                       id="longitude"
-                      type="number"
-                      step="0.000001"
-                      min={-180}
-                      max={180}
-                      value={formData.longitude ?? ''}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? null : parseFloat(e.target.value)
-                        setFormData(prev => ({ ...prev, longitude: val }))
-                      }}
+                      type="text"
+                      inputMode="decimal"
+                      value={formData.longitude}
+                      onChange={(e) => setFormData(prev => ({ ...prev, longitude: e.target.value }))}
                       placeholder="64.4194"
                       className={!isValidLongitude(formData.longitude) ? 'border-destructive' : ''}
                     />
@@ -354,8 +412,8 @@ export default function StoresPage() {
                 {hasValidCoordinates && (
                   <div className="mt-3">
                     <StoreLocationMap
-                      latitude={formData.latitude!}
-                      longitude={formData.longitude!}
+                      latitude={latNum!}
+                      longitude={lngNum!}
                       radiusMeters={formData.radiusMeters}
                     />
                     <p className="text-xs text-muted-foreground text-center mt-2">
@@ -427,7 +485,7 @@ export default function StoresPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {stores.map((store) => (
-            <Card key={store.id} className={`relative ${!store.isActive ? 'opacity-60' : ''}`}>
+            <Card key={store.id} className={`relative neo-card neo-float ${!store.isActive ? 'opacity-60' : ''}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
@@ -452,6 +510,13 @@ export default function StoresPage() {
                       <DropdownMenuItem onClick={() => openEditDialog(store)}>
                         <Edit className="h-4 w-4 mr-2" />
                         Редактировать
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setQrStore(store)
+                        setQrDialogOpen(true)
+                      }}>
+                        <QrCodeIcon className="h-4 w-4 mr-2" />
+                        QR Код
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => {
@@ -517,6 +582,38 @@ export default function StoresPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+
+      {/* QR Code Dialog */}
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>QR Код Магазина</DialogTitle>
+            <DialogDescription>
+              Отсканируйте этот код для настройки терминала в магазине "{qrStore?.name}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg">
+             {qrStore && (
+                <div className="p-4 bg-white">
+                  <QRCode
+                    id="store-qr-code"
+                    value={qrStore.id}
+                    size={200}
+                    level="H"
+                  />
+                </div>
+             )}
+             <p className="text-xs text-gray-500 mt-2 font-mono">{qrStore?.id}</p>
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <Button onClick={handleDownloadQr} className="w-full sm:w-auto gap-2">
+              <Download className="h-4 w-4" />
+              Скачать QR-код
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

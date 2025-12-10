@@ -35,20 +35,20 @@ export default async function TestsPage() {
       <div className="flex items-center justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Управление тестами</h2>
         <Link href="/admin/tests/create">
-          <Button>
+          <Button className="neo-gradient">
             <Plus className="mr-2 h-4 w-4" /> Создать тест
           </Button>
         </Link>
       </div>
 
-      <Card>
+      <Card className="neo-card neo-float">
         <CardHeader>
           <CardTitle>Список тестов</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
-              <TableRow>
+              <TableRow className="hover:bg-muted/50 border-white/10">
                 <TableHead>Название</TableHead>
                 <TableHead>Вопросов</TableHead>
                 <TableHead>Прохождений</TableHead>
@@ -59,7 +59,7 @@ export default async function TestsPage() {
             </TableHeader>
             <TableBody>
               {tests.map((test) => (
-                <TableRow key={test.id}>
+                <TableRow key={test.id} className="hover:bg-muted/50 border-white/10">
                   <TableCell className="font-medium">{test.title}</TableCell>
                   <TableCell>{test._count.questions}</TableCell>
                   <TableCell>{test._count.sessions}</TableCell>

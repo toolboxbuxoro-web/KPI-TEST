@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { 
   MapPin, 
-  Camera, 
   LogIn, 
   LogOut, 
   Loader2, 
@@ -155,14 +154,14 @@ export default function CheckPage() {
 
   return (
     <div className="min-h-screen bg-background neo-pattern p-4 flex flex-col items-center justify-center">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md neo-card neo-float">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Отметка посещаемости</CardTitle>
           <p className="text-muted-foreground text-sm">Toolbox Control</p>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Geolocation Status */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-white/5">
             <div className="flex items-center gap-2">
               <MapPin className={`h-5 w-5 ${geoPosition ? 'text-green-500' : geoError ? 'text-red-500' : 'text-muted-foreground'}`} />
               <span className="text-sm">
@@ -192,10 +191,11 @@ export default function CheckPage() {
                   value={employeeCode}
                   onChange={(e) => setEmployeeCode(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && checkStatus()}
+                  className="neo-input"
                 />
               </div>
               <Button 
-                className="w-full" 
+                className="w-full neo-gradient" 
                 onClick={checkStatus}
                 disabled={loading}
               >
@@ -209,8 +209,8 @@ export default function CheckPage() {
           {status && (
             <div className="space-y-6">
               {/* Employee Info */}
-              <div className="text-center p-4 rounded-lg bg-primary/10">
-                <div className="text-2xl font-bold">
+              <div className="text-center p-4 rounded-lg bg-primary/10 border border-primary/20">
+                <div className="text-2xl font-bold text-primary">
                   {status.employee.firstName} {status.employee.lastName}
                 </div>
                 {status.today.store && (
@@ -222,7 +222,7 @@ export default function CheckPage() {
 
               {/* Today's Status */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-white/5">
                   <span>Вход</span>
                   <div className="flex items-center gap-2">
                     {status.today.checked_in ? (
@@ -238,7 +238,7 @@ export default function CheckPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-white/5">
                   <span>Выход</span>
                   <div className="flex items-center gap-2">
                     {status.today.checked_out ? (
@@ -255,7 +255,7 @@ export default function CheckPage() {
                 </div>
 
                 {status.today.in_zone === false && (
-                  <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-600">
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">
                     <AlertTriangle className="h-5 w-5" />
                     <span className="text-sm">Вне зоны магазина</span>
                   </div>
@@ -268,7 +268,7 @@ export default function CheckPage() {
                   size="lg"
                   onClick={() => performCheck('in')}
                   disabled={checking || status.today.checked_in}
-                  className="h-20 flex-col gap-2"
+                  className={`h-20 flex-col gap-2 ${!status.today.checked_in ? 'neo-gradient' : ''}`}
                 >
                   {checking ? (
                     <Loader2 className="h-6 w-6 animate-spin" />
@@ -283,7 +283,7 @@ export default function CheckPage() {
                   variant="outline"
                   onClick={() => performCheck('out')}
                   disabled={checking || !status.today.checked_in || status.today.checked_out}
-                  className="h-20 flex-col gap-2"
+                  className={`h-20 flex-col gap-2 ${status.today.checked_in && !status.today.checked_out ? 'hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50' : ''}`}
                 >
                   {checking ? (
                     <Loader2 className="h-6 w-6 animate-spin" />

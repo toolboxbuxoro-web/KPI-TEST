@@ -24,9 +24,33 @@ export const answerSchema = z.object({
   selectedOptionIds: z.array(z.string()).min(1, "Выберите хотя бы один вариант"),
 })
 
+// Role enum для валидации
+export const roleEnum = z.enum(["SUPER_ADMIN", "STORE_MANAGER", "EMPLOYEE"])
+
 export const employeeSchema = z.object({
+  // ФИО
   firstName: z.string().min(2, "Имя должно содержать минимум 2 символа"),
   lastName: z.string().min(2, "Фамилия должна содержать минимум 2 символа"),
+  middleName: z.string().optional(),
+  
+  // Контакты
+  phone: z.string().optional(),
+  email: z.string().email("Некорректный email").optional().or(z.literal("")),
+  password: z.string().min(6, "Пароль должен быть минимум 6 символов").optional().or(z.literal("")),
+  
+  // Персональные данные
+  birthDate: z.string().optional(), // ISO date string
+  
+  // Должность и роль
   position: z.string().min(2, "Должность должна содержать минимум 2 символа"),
+  role: roleEnum.optional(),
+  
+  // Привязка к магазину
+  storeId: z.string().optional().nullable(),
+  
+  // Статус
+  isActive: z.boolean().optional(),
+  
+  // Фото
   imageUrl: z.string().optional(),
 })

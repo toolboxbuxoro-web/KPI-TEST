@@ -23,8 +23,9 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
-import { Plus, Pencil, Trash2, FileText, Image as ImageIcon, Loader2, Camera } from "lucide-react"
+import { Plus, Pencil, Trash2, FileText, Image as ImageIcon, Loader2, Camera, Building2, CalendarDays } from "lucide-react"
 import { FileUpload } from "@/components/file-upload"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -34,12 +35,24 @@ import { useRef } from "react"
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>
 
+interface StoreOption {
+  id: string
+  name: string
+}
+
 interface EmployeeDialogProps {
   employee?: {
     id: string
     firstName: string
     lastName: string
+    middleName?: string | null
+    phone?: string | null
+    email?: string | null
+    birthDate?: Date | null
     position: string
+    role?: string
+    storeId?: string | null
+    isActive?: boolean
     imageUrl?: string | null
     documents?: {
       id: string
@@ -50,12 +63,14 @@ interface EmployeeDialogProps {
     }[]
   }
   trigger?: React.ReactNode
+  stores?: StoreOption[]
 }
 
-export function EmployeeDialog({ employee, trigger }: EmployeeDialogProps) {
+export function EmployeeDialog({ employee, trigger, stores: initialStores }: EmployeeDialogProps) {
   const [open, setOpen] = useState(false)
-  const [docLoading, setDocLoading] = useState<string | null>(null) // ID of doc being deleted or 'upload'
+  const [docLoading, setDocLoading] = useState<string | null>(null)
   const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [stores, setStores] = useState<StoreOption[]>(initialStores || [])
   const webcamRef = useRef<Webcam>(null)
   const isEditing = !!employee
 
@@ -93,7 +108,15 @@ export function EmployeeDialog({ employee, trigger }: EmployeeDialogProps) {
     defaultValues: {
       firstName: employee?.firstName || "",
       lastName: employee?.lastName || "",
+      middleName: employee?.middleName || "",
+      phone: employee?.phone || "",
+      email: employee?.email || "",
+      password: "",
+      birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : "",
       position: employee?.position || "",
+      role: (employee?.role as "SUPER_ADMIN" | "STORE_MANAGER" | "EMPLOYEE") || "EMPLOYEE",
+      storeId: employee?.storeId || undefined,
+      isActive: employee?.isActive ?? true,
       imageUrl: employee?.imageUrl || "",
     },
   })
@@ -254,12 +277,151 @@ export function EmployeeDialog({ employee, trigger }: EmployeeDialogProps) {
                 />
                 <FormField
                   control={form.control}
+                  name="middleName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Отчество</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Иванович" className="h-10 text-sm sm:text-base" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Контакты */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Телефон</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+998 90 123 45 67" className="h-10 text-sm sm:text-base" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="ivan@example.com" className="h-10 text-sm sm:text-base" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Персональные данные */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <FormField
+                  control={form.control}
+                  name="birthDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Дата рождения</FormLabel>
+                      <FormControl>
+                        <Input type="date" className="h-10 text-sm sm:text-base" {...field} value={field.value || ""} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="position"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium">Должность</FormLabel>
                       <FormControl>
                         <Input placeholder="Менеджер" className="h-10 text-sm sm:text-base" {...field} />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Роль и магазин */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Роль</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Выберите роль" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="EMPLOYEE">Сотрудник</SelectItem>
+                          <SelectItem value="STORE_MANAGER">Менеджер магазина</SelectItem>
+                          <SelectItem value="SUPER_ADMIN">Администратор</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="storeId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Магазин</FormLabel>
+                      <Select 
+                        onValueChange={(value) => field.onChange(value === "none" ? null : value)} 
+                        defaultValue={field.value || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Выберите магазин" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">Без привязки</SelectItem>
+                          {stores.map((store) => (
+                            <SelectItem key={store.id} value={store.id}>
+                              {store.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Пароль */}
+              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">
+                        {isEditing ? "Новый пароль (оставьте пустым чтобы не менять)" : "Пароль"}
+                      </FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="password" 
+                          placeholder={isEditing ? "••••••" : "Введите пароль"} 
+                          className="h-10 text-sm sm:text-base" 
+                          {...field} 
+                          value={field.value || ""} 
+                        />
                       </FormControl>
                       <FormMessage className="text-xs" />
                     </FormItem>

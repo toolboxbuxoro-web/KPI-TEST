@@ -4,6 +4,7 @@ import prisma from "@/lib/db"
 import { redis } from "@/lib/redis"
 import { auth } from "@/auth"
 import { revalidatePath } from "next/cache"
+import { Prisma } from "@prisma/client"
 
 const DESCRIPTORS_CACHE_KEY = "face:descriptors:all"
 const CACHE_TTL = 60 * 5 // 5 minutes
@@ -30,11 +31,10 @@ export async function getAllFaceDescriptors(): Promise<FaceDescriptorData[]> {
     console.error("Redis cache error:", error)
   }
 
-  // Fetch from database
+  // Fetch from database - get all employees with photos and consent
   const employees = await prisma.employee.findMany({
     where: {
-      faceDescriptor: { not: null },
-      consentSignedAt: { not: null } // Only employees who gave consent
+      consentSignedAt: { not: null }
     },
     select: {
       id: true,
@@ -44,6 +44,7 @@ export async function getAllFaceDescriptors(): Promise<FaceDescriptorData[]> {
     }
   })
 
+  // Filter employees with face descriptors
   const descriptors: FaceDescriptorData[] = employees
     .filter(e => e.faceDescriptor !== null)
     .map(e => ({
@@ -78,7 +79,7 @@ export async function saveFaceDescriptor(employeeId: string, descriptor: number[
   await prisma.employee.update({
     where: { id: employeeId },
     data: {
-      faceDescriptor: descriptor,
+      faceDescriptor: descriptor as unknown as Prisma.InputJsonValue,
       descriptorUpdatedAt: new Date()
     }
   })
@@ -106,7 +107,7 @@ export async function clearFaceDescriptor(employeeId: string) {
   await prisma.employee.update({
     where: { id: employeeId },
     data: {
-      faceDescriptor: null,
+      faceDescriptor: Prisma.JsonNull,
       descriptorUpdatedAt: null
     }
   })
@@ -154,7 +155,7 @@ export async function revokeBiometricConsent(employeeId: string) {
     where: { id: employeeId },
     data: {
       consentSignedAt: null,
-      faceDescriptor: null,
+      faceDescriptor: Prisma.JsonNull,
       descriptorUpdatedAt: null
     }
   })
@@ -179,12 +180,9 @@ export async function getEmployeesWithoutDescriptors() {
   const session = await auth()
   if (!session?.user) return { error: "Unauthorized" }
 
+  // Get all employees with photos, filter in JS
   const employees = await prisma.employee.findMany({
     where: {
-      OR: [
-        { faceDescriptor: null },
-        { consentSignedAt: null }
-      ],
       imageUrl: { not: null }
     },
     select: {
@@ -198,7 +196,12 @@ export async function getEmployeesWithoutDescriptors() {
     }
   })
 
-  return { employees }
+  // Filter those without descriptor or consent
+  const filtered = employees.filter(e => 
+    e.faceDescriptor === null || e.consentSignedAt === null
+  )
+
+  return { employees: filtered }
 }
 
 /**
@@ -208,18 +211,25 @@ export async function getBiometricStats() {
   const session = await auth()
   if (!session?.user) return { error: "Unauthorized" }
 
-  const [totalEmployees, withDescriptor, withConsent, withPhoto] = await Promise.all([
-    prisma.employee.count(),
-    prisma.employee.count({ where: { faceDescriptor: { not: null } } }),
-    prisma.employee.count({ where: { consentSignedAt: { not: null } } }),
-    prisma.employee.count({ where: { imageUrl: { not: null } } })
-  ])
+  // Get all employees and count in JS (Prisma Json field limitation)
+  const employees = await prisma.employee.findMany({
+    select: {
+      faceDescriptor: true,
+      consentSignedAt: true,
+      imageUrl: true
+    }
+  })
+
+  const totalEmployees = employees.length
+  const withDescriptor = employees.filter(e => e.faceDescriptor !== null).length
+  const withConsent = employees.filter(e => e.consentSignedAt !== null).length
+  const withPhoto = employees.filter(e => e.imageUrl !== null).length
 
   return {
     totalEmployees,
     withDescriptor,
     withConsent,
     withPhoto,
-    readyForRecognition: withDescriptor // Both descriptor and consent
+    readyForRecognition: withDescriptor
   }
 }

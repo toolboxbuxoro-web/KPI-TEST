@@ -156,7 +156,7 @@ export default function TestRunner({ session, employee }: TestRunnerProps) {
       })
       
       if (currentIndex < questions.length - 1) {
-        setCurrentIndex(prev => prev + 1)
+        setCurrentIndex((prev: number) => prev + 1)
       } else {
         // Finish
         await finishSession(session.id)

@@ -14,8 +14,8 @@ export interface DashboardStats {
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   // Try cache
-  const cached = await redis.get<DashboardStats>("dashboard:stats")
-  if (cached) return cached
+  const cached = await redis.get("dashboard:stats")
+  if (cached) return JSON.parse(cached) as DashboardStats
 
   const [totalEmployees, totalTests, completedSessions, avgScore, allSessions] = await Promise.all([
     prisma.employee.count(),
@@ -69,8 +69,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 export async function getChartData() {
-  const cached = await redis.get<any[]>("dashboard:chart")
-  if (cached) return cached
+  const cached = await redis.get("dashboard:chart")
+  if (cached) return JSON.parse(cached)
 
   // Get average score per test
   const testStats = await prisma.employeeTestSession.groupBy({
@@ -106,8 +106,8 @@ export async function getChartData() {
 }
 
 export async function getLeaderboard() {
-  const cached = await redis.get<any[]>("leaderboard")
-  if (cached) return cached
+  const cached = await redis.get("leaderboard")
+  if (cached) return JSON.parse(cached)
 
   const leaderboard = await prisma.employeeTestSession.findMany({
     where: { status: "completed" },

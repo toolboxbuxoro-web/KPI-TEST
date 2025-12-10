@@ -74,7 +74,7 @@ export default async function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {leaderboard.map((session) => (
+                {leaderboard.map((session: { id: string; employee: { firstName: string; lastName: string }; test: { title: string }; score: number; maxScore: number; correctAnswers: number; totalQuestions: number; kpiScore: number | null }) => (
                   <TableRow key={session.id}>
                     <TableCell className="font-medium">
                       {session.employee.firstName} {session.employee.lastName}

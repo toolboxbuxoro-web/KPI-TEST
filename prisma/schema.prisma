@@ -12,6 +12,9 @@ model Store {
   id            String             @id @default(cuid())
   name          String
   address       String?
+  latitude      Float?
+  longitude     Float?
+  radiusMeters  Int                @default(100)
   workStartHour Int                @default(8)  // 08:00
   workEndHour   Int                @default(18) // 18:00
   isActive      Boolean            @default(true)
@@ -25,6 +28,7 @@ model Store {
 
 model Employee {
   id                  String                @id @default(cuid())
+  employeeCode        String?               @unique // For PWA check-in
   firstName           String
   lastName            String
   position            String
@@ -45,7 +49,12 @@ model AttendanceRecord {
   storeId    String?
   checkIn    DateTime  @default(now())
   checkOut   DateTime?
-  branch     String?   @default("Main Branch") // deprecated, kept for compatibility
+  latitude   Float?
+  longitude  Float?
+  inZone     Boolean   @default(true)
+  device     String?   // mobile, web, kiosk
+  photoUrl   String?
+  branch     String?   @default("Main Branch") // deprecated
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -54,7 +63,7 @@ model AttendanceRecord {
   @@index([employeeId])
   @@index([storeId])
   @@index([checkIn])
-  @@index([employeeId, checkIn]) // Composite index for fast history queries
+  @@index([employeeId, checkIn])
 }
 
 model EmployeeDocument {

@@ -1,10 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { StoreQRScanner } from '@/components/store-qr-scanner'
+import { authenticateStore } from '@/app/actions/store-auth'
 import { AttendanceScanner } from '@/components/admin/attendance-scanner'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { 
   Clock, 
   ShieldCheck, 
@@ -13,34 +15,69 @@ import {
   Building2,
   ArrowRight,
   Fingerprint,
-  KeyRound
+  KeyRound,
+  Loader2,
+  ArrowLeft
 } from "lucide-react"
 import Link from 'next/link'
 import { useSession } from "next-auth/react"
+import { toast } from 'sonner'
 
 export function AttendanceFlow() {
   const { data: session } = useSession()
   const [storeId, setStoreId] = useState<string | null>(null)
-  const [isScanning, setIsScanning] = useState(false)
+  const [storeName, setStoreName] = useState<string | null>(null)
+  const [isLoggingIn, setIsLoggingIn] = useState(false)
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   // Persist storeId in localStorage to survive refreshes in Kiosk mode
   useEffect(() => {
     const savedStoreId = localStorage.getItem('toolbox_kiosk_store_id')
+    const savedStoreName = localStorage.getItem('toolbox_kiosk_store_name')
     if (savedStoreId) {
       setStoreId(savedStoreId)
+      setStoreName(savedStoreName)
     }
   }, [])
 
-  const handleScanSuccess = (id: string) => {
-    setStoreId(id)
-    localStorage.setItem('toolbox_kiosk_store_id', id)
-    setIsScanning(false)
+  const handleLogin = async () => {
+    if (!login.trim() || !password.trim()) {
+      toast.error('Введите логин и пароль')
+      return
+    }
+
+    setIsLoading(true)
+    try {
+      const result = await authenticateStore(login, password)
+      if (result.success && result.storeId) {
+        setStoreId(result.storeId)
+        setStoreName(result.storeName || null)
+        localStorage.setItem('toolbox_kiosk_store_id', result.storeId)
+        if (result.storeName) {
+          localStorage.setItem('toolbox_kiosk_store_name', result.storeName)
+        }
+        setIsLoggingIn(false)
+        toast.success(`Терминал: ${result.storeName}`)
+      } else {
+        toast.error(result.error || 'Ошибка входа')
+      }
+    } catch (error) {
+      toast.error('Ошибка сети')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleReset = () => {
     localStorage.removeItem('toolbox_kiosk_store_id')
+    localStorage.removeItem('toolbox_kiosk_store_name')
     setStoreId(null)
-    setIsScanning(false)
+    setStoreName(null)
+    setLogin('')
+    setPassword('')
+    setIsLoggingIn(false)
     window.location.reload()
   }
 
@@ -53,12 +90,58 @@ export function AttendanceFlow() {
     )
   }
 
-  // QR Scanner mode
-  if (isScanning) {
+  // Store Login Form
+  if (isLoggingIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6 animate-in fade-in slide-in-from-bottom-5">
-        <StoreQRScanner onScanSuccess={handleScanSuccess} />
-        <Button variant="outline" onClick={() => setIsScanning(false)} className="rounded-full">
+        <Card className="w-full max-w-md neo-card neo-float">
+          <CardHeader className="text-center">
+            <div className="h-16 w-16 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
+              <Building2 className="h-8 w-8 text-orange-500" />
+            </div>
+            <CardTitle className="text-2xl">Вход в терминал</CardTitle>
+            <CardDescription>Введите логин и пароль магазина</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="store-login">Логин магазина</Label>
+              <Input
+                id="store-login"
+                placeholder="Введите логин..."
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                className="neo-input"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="store-password">Пароль</Label>
+              <Input
+                id="store-password"
+                type="password"
+                placeholder="Введите пароль..."
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+                className="neo-input"
+              />
+            </div>
+            <Button 
+              className="w-full neo-gradient" 
+              size="lg"
+              onClick={handleLogin}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <KeyRound className="mr-2 h-5 w-5" />
+              )}
+              Войти в терминал
+            </Button>
+          </CardContent>
+        </Card>
+        <Button variant="outline" onClick={() => setIsLoggingIn(false)} className="rounded-full gap-2">
+          <ArrowLeft className="h-4 w-4" />
           Назад
         </Button>
       </div>
@@ -113,7 +196,7 @@ export function AttendanceFlow() {
 
          {/* Terminal/Kiosk Card */}
          <Card className="group relative overflow-hidden neo-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-2 border-transparent hover:border-orange-500/30"
-               onClick={() => setIsScanning(true)}>
+               onClick={() => setIsLoggingIn(true)}>
            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
            <CardHeader className="pb-2">
              <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
@@ -124,7 +207,7 @@ export function AttendanceFlow() {
                <ArrowRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-orange-500" />
              </CardTitle>
              <CardDescription>
-               Сканирование лиц для магазина
+               Вход по логину магазина
              </CardDescription>
            </CardHeader>
            <CardContent className="pt-0">
@@ -134,8 +217,8 @@ export function AttendanceFlow() {
                  <span>Face ID</span>
                </div>
                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
-                 <ScanLine className="h-3 w-3" />
-                 <span>QR магазина</span>
+                 <KeyRound className="h-3 w-3" />
+                 <span>Логин магазина</span>
                </div>
              </div>
            </CardContent>

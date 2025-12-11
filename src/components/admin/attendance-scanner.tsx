@@ -59,6 +59,16 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   const [faceMatcher, setFaceMatcher] = useState<faceapi.FaceMatcher | null>(null)
   const [loadingProgress, setLoadingProgress] = useState(0)
 
+  // New state for UI Feedback Overlay
+  const [resultOverlay, setResultOverlay] = useState<{
+    type: 'success' | 'error' | 'already'
+    message: string
+    employee?: any
+  } | null>(null)
+  
+  // Ref for counting unknown attempts
+  const unknownAttemptsRef = useRef(0)
+
 
   useEffect(() => {
      setSelectedStoreId(preselectedStoreId || '')
@@ -187,9 +197,9 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
    * блокируется на 60 секунд (см. lastScanned).
    */
   const processFrame = async () => {
-    // Проверяем ref ПЕРВЫМ делом для немедленной блокировки
-    if (isProcessingRef.current) return
-    // Remove isLoading from blocking condition to allow background processing
+    // Block if already processing or showing result
+    if (isProcessingRef.current || resultOverlay) return
+    
     if (!webcamRef.current || !modelsLoaded || step !== 'scanning') return
     
     const imageSrc = webcamRef.current.getScreenshot()
@@ -200,14 +210,17 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
         const detection = await faceapi.detectSingleFace(webcamImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })).withFaceLandmarks().withFaceDescriptor()
 
         if (!detection) {
-            if (step === 'scanning') setVerificationStatus('Поиск лица...')
+            // Only update status if we are not in a failure sequence
+            if (unknownAttemptsRef.current === 0) {
+                 setVerificationStatus('Поиск лица...')
+            }
             return
         }
 
-         // Проверка качества — минимальный размер лица для точного распознавания
+         // Quality check
         const box = detection.detection.box
         if (box.width < 100) {
-            setVerificationStatus('Смотрите в камеру')
+            setVerificationStatus('Ближе к камере')
             return
         }
 
@@ -215,36 +228,49 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             const match = faceMatcher.findBestMatch(detection.descriptor)
             
             if (match.label !== 'unknown') {
-                // НЕМЕДЛЕННО блокируем обработку через ref ДО любых проверок
+                // SUCCESS MATCH
+                unknownAttemptsRef.current = 0 // Reset attempts
+                
                 if (isProcessingRef.current) return
                 isProcessingRef.current = true
 
-                // Cooldown check — 60 секунд между сканами одного и того же человека В ЭТОМ РЕЖИМЕ
+                // Cooldown check (prevent spam)
                 const scanKey = `${match.label}-${scanMode}`
                 const now = Date.now()
                 if (lastScanned[scanKey] && now - lastScanned[scanKey] < 60000) {
-                   setVerificationStatus(`Готово! Подождите...`)
+                   setVerificationStatus(`Подождите...`)
                    isProcessingRef.current = false
                    return
                 }
                 
                 setVerificationStatus(`Распознан: ${match.label}`)
                 
-                // Ставим cooldown для конкретного человека и режима
-                setLastScanned(prev => ({...prev, [scanKey]: now}))
-                
-                // СРАЗУ разблокируем сканер для следующего человека (Fire-and-Forget)
-                isProcessingRef.current = false
-
-                const emp = await getEmployee(match.label)
-                if (emp && !('error' in emp)) {
-                    setEmployee(emp)
-                    setVerificationStatus(`Распознан: ${emp.firstName} ${emp.lastName}`)
-                    // Запускаем в фоне, не блокируя цикл
-                    processAttendance(emp).catch(console.error)
+                // Fetch full employee data
+                try {
+                    const emp = await getEmployee(match.label)
+                    if (emp && !('error' in emp)) {
+                        setEmployee(emp)
+                        await processAttendance(emp)
+                    } else {
+                         throw new Error("Employee not found")
+                    }
+                } catch (err) {
+                    console.error(err)
+                    isProcessingRef.current = false
                 }
             } else {
-                setVerificationStatus('Лицо не распознано')
+                // UNKNOWN MATCH - Increment attempts
+                unknownAttemptsRef.current += 1
+                setVerificationStatus(`Не распознан (${unknownAttemptsRef.current}/3)`)
+                
+                if (unknownAttemptsRef.current >= 3) {
+                     isProcessingRef.current = true // Stop scanning
+                     setResultOverlay({ type: 'error', message: 'Не удалось распознать' })
+                     
+                     setTimeout(() => {
+                        handleScanComplete()
+                     }, 2000)
+                }
             }
         }
 
@@ -254,60 +280,70 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
     }
   }
 
+  // Helper to reset and exit
+  const handleScanComplete = () => {
+      setResultOverlay(null)
+      setScanMode(null) // Go back to menu
+      isProcessingRef.current = false
+      unknownAttemptsRef.current = 0
+      setEmployee(null)
+      setVerificationStatus('Готово')
+  }
+
+  // Loop trigger
   // Loop trigger
   useEffect(() => {
     let interval: NodeJS.Timeout
-    if (modelsLoaded && step === 'scanning' && scanMode) {
-        interval = setInterval(processFrame, 100) // 10 FPS for smoother scanning
+    if (modelsLoaded && step === 'scanning' && scanMode && !resultOverlay) {
+        // Run every 800ms to allow "attempts" to be readable events
+        interval = setInterval(processFrame, 800)
     }
     return () => clearInterval(interval)
-  }, [modelsLoaded, step, faceMatcher, scanMode])
+  }, [modelsLoaded, step, faceMatcher, scanMode, resultOverlay])
 
 
-  async function processAttendance(empData?: any) {
-    const targetEmployee = empData || employee
+  async function processAttendance(empData: any) {
+    const targetEmployee = empData
     if (!targetEmployee || !scanMode) return
-    
-    // Не устанавливаем isLoading(true), так как это блокировало бы сканер (если бы мы его использовали)
-    // Мы хотим, чтобы сканер продолжал работать. 
     
     try {
       const result = await registerAttendance(targetEmployee.id, scanMode, selectedStoreId || undefined)
       
-      if (result.error) {
-        // Умный откат: если ошибка НЕ связана с тем, что человек уже отметился,
-        // то сбрасываем cooldown, чтобы он мог попробовать снова сразу.
-        if (!result.error.includes("уже отметились") && !result.error.includes("Сначала нужно")) {
-             setLastScanned(prev => {
-                const next = {...prev}
-                const scanKey = `${targetEmployee.id}-${scanMode}`
-                delete next[scanKey]
-                return next
-            })
-        }
-        toast.error(result.error, { id: `attendance-error-${targetEmployee.id}` })
+      // Update cooldown map on success
+      if (result.success) {
+           const scanKey = `${targetEmployee.id}-${scanMode}`
+           setLastScanned(prev => ({...prev, [scanKey]: Date.now()}))
+           setResultOverlay({ 
+               type: 'success', 
+               message: result.message || 'Успешно', 
+               employee: targetEmployee 
+           })
+           fetchLogs()
       } else {
-        toast.success(result.message, { id: `attendance-success-${targetEmployee.id}` })
-        fetchLogs()
+           // Handle specific statuses
+           if (result.status === 'ALREADY_CHECKED_IN' || result.status === 'ALREADY_CHECKED_OUT') {
+               setResultOverlay({ 
+                   type: 'already', 
+                   message: result.error || 'Уже отмечено', 
+                   employee: targetEmployee 
+               })
+           } else {
+               setResultOverlay({ 
+                   type: 'error', 
+                   message: result.error || 'Ошибка' 
+               })
+           }
       }
+
+      // Automatically close after delay
+      setTimeout(() => {
+          handleScanComplete()
+      }, 2500)
       
-      // Сбрасываем UI статусы, только если это не происходит слишком быстро, чтобы пользователь успел увидеть "Распознан..."
-      // В режиме потока лучше оставлять "Распознан", пока не переключится на другое лицо.
-      // Но здесь мы просто очищаем локальный стейт.
-      if (employee?.id === targetEmployee.id) {
-          setEmployee(null)
-      }
-      
-      // Не сбрасываем setStep('scanning'), так как мы всегда в нем
     } catch (error) {
-       // Ошибка сети или другая неожиданная ошибка — сбрасываем cooldown
-       setLastScanned(prev => {
-          const next = {...prev}
-          const scanKey = `${targetEmployee.id}-${scanMode}`
-          delete next[scanKey]
-          return next
-      })
-      toast.error("Произошла ошибка сети")
+       console.error(error)
+       setResultOverlay({ type: 'error', message: "Ошибка сети" })
+       setTimeout(handleScanComplete, 2500)
     }
   }
 
@@ -462,7 +498,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                     </Button>
                 </div>
 
-                {/* Camera Viewport — ограниченная высота */}
+                {/* Camera Viewport */}
                 <div className="relative overflow-hidden bg-black flex items-center justify-center aspect-video max-h-[50vh]">
                     {isSupported && !cameraError && (
                         <Webcam
@@ -495,13 +531,67 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                         </div>
                     )}
                     
-                    {/* Scanning Overlay */}
-                    <div className={`absolute inset-0 border-[6px] transition-colors duration-300 z-10 ${
-                        verificationStatus.includes('Распознан') ? 'border-green-500/80' : 'border-white/10'
-                    }`} />
+                    {/* RESULT OVERLAY - NEW */}
+                    {resultOverlay && (
+                         <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
+                             <Card className={`max-w-sm w-full border-0 shadow-2xl ${
+                                 resultOverlay.type === 'success' ? 'bg-green-500/10 border-green-500/50' :
+                                 resultOverlay.type === 'already' ? 'bg-orange-500/10 border-orange-500/50' : 
+                                 'bg-red-500/10 border-red-500/50'
+                             } border-2`}>
+                                 <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                     
+                                     {resultOverlay.employee && (
+                                         <Avatar className="h-24 w-24 border-4 border-background shadow-xl mb-2">
+                                             <AvatarImage src={resultOverlay.employee.imageUrl} />
+                                             <AvatarFallback className="text-2xl">{resultOverlay.employee.firstName[0]}</AvatarFallback>
+                                         </Avatar>
+                                     )}
 
-                    {/* Scanning Animation — адаптивный размер рамки */}
-                    {!employee && !cameraError && (
+                                     <div className={`p-4 rounded-full ${
+                                         resultOverlay.type === 'success' ? 'bg-green-500 text-white' :
+                                         resultOverlay.type === 'already' ? 'bg-orange-500 text-white' :
+                                         'bg-red-500 text-white'
+                                     }`}>
+                                         {resultOverlay.type === 'success' && <CheckCircle2 className="h-8 w-8" />}
+                                         {resultOverlay.type === 'already' && <AlertCircle className="h-8 w-8" />}
+                                         {resultOverlay.type === 'error' && <XCircle className="h-8 w-8" />}
+                                     </div>
+
+                                     <div className="space-y-1">
+                                         <h2 className="text-2xl font-bold text-white">
+                                             {resultOverlay.employee 
+                                                 ? `${resultOverlay.employee.firstName} ${resultOverlay.employee.lastName}`
+                                                 : (resultOverlay.type === 'error' ? 'Ошибка' : resultOverlay.type)
+                                             }
+                                         </h2>
+                                         <p className="text-lg text-white/90 font-medium">
+                                             {resultOverlay.message}
+                                         </p>
+                                     </div>
+                                 </CardContent>
+                             </Card>
+                         </div>
+                    )}
+
+                    {/* Scanning Face Frame */}
+                    {!resultOverlay && !cameraError && (
+                         <div className={`absolute inset-0 border-[6px] transition-colors duration-300 z-10 ${
+                             verificationStatus.includes('Распознан') ? 'border-green-500/80' : 'border-white/10'
+                         }`}>
+                             {/* Attempts counter in center if verifying */}
+                             {unknownAttemptsRef.current > 0 && (
+                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform">
+                                      <div className="text-6xl font-bold text-white/50 animate-pulse">
+                                          {unknownAttemptsRef.current}
+                                      </div>
+                                 </div>
+                             )}
+                         </div>
+                    )}
+
+                    {/* Scanning Animation */}
+                    {!employee && !cameraError && !resultOverlay && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                             <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 border-2 border-white/30 rounded-lg relative">
                                 <div className="absolute top-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-t-4 border-l-4 border-primary -mt-1 -ml-1" />
@@ -514,18 +604,22 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                     )}
                     
                     {/* Status Badge */}
-                    <div className="absolute bottom-8 left-0 right-0 flex justify-center z-20">
-                        <div className={`px-6 py-2 rounded-full backdrop-blur-md border shadow-xl transition-all duration-300 ${
-                            verificationStatus.includes('Распознан') 
-                                ? 'bg-green-500/20 border-green-500/50 text-green-100' 
-                                : 'bg-black/60 border-white/10 text-white'
-                        }`}>
-                            <span className="font-medium flex items-center gap-2">
-                                {verificationStatus.includes('Распознан') && <CheckCircle2 className="h-4 w-4" />}
-                                {verificationStatus}
-                            </span>
+                    {!resultOverlay && (
+                        <div className="absolute bottom-8 left-0 right-0 flex justify-center z-20">
+                            <div className={`px-6 py-2 rounded-full backdrop-blur-md border shadow-xl transition-all duration-300 ${
+                                verificationStatus.includes('Распознан') 
+                                    ? 'bg-green-500/20 border-green-500/50 text-green-100' 
+                                    : verificationStatus.includes('Не распознан')
+                                    ? 'bg-red-500/20 border-red-500/50 text-red-100'
+                                    : 'bg-black/60 border-white/10 text-white'
+                            }`}>
+                                <span className="font-medium flex items-center gap-2">
+                                    {verificationStatus.includes('Распознан') && <CheckCircle2 className="h-4 w-4" />}
+                                    {verificationStatus}
+                                </span>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
           )}

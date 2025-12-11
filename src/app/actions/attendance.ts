@@ -26,7 +26,11 @@ export async function registerAttendance(employeeId: string, type: 'in' | 'out',
 
     if (type === 'in') {
         if (latestRecord && !latestRecord.checkOut) {
-            return { error: "Вы уже отметились на вход. Сначала нужно выйти." }
+            return { 
+                success: false, 
+                status: 'ALREADY_CHECKED_IN',
+                error: "Вы уже отметились на вход. Сначала нужно выйти." 
+            }
         }
 
         // Validate storeId if provided
@@ -47,16 +51,24 @@ export async function registerAttendance(employeeId: string, type: 'in' | 'out',
         })
         revalidatePath("/admin/attendance")
         revalidatePath("/admin/stores")
-        return { success: true, status: 'checked-in', message: 'Успешный вход' }
+        return { success: true, status: 'CHECKED_IN', message: 'Успешный вход' }
     } 
     
     if (type === 'out') {
         if (!latestRecord) {
-            return { error: "Сначала нужно отметиться на вход." }
+            return { 
+                success: false, 
+                status: 'NOT_CHECKED_IN',
+                error: "Сначала нужно отметиться на вход." 
+            }
         }
 
         if (latestRecord.checkOut) {
-            return { error: "Вы уже отметились на выход." }
+            return { 
+                success: false, 
+                status: 'ALREADY_CHECKED_OUT',
+                error: "Вы уже отметились на выход." 
+            }
         }
 
         await prisma.attendanceRecord.update({
@@ -67,7 +79,7 @@ export async function registerAttendance(employeeId: string, type: 'in' | 'out',
         })
         revalidatePath("/admin/attendance")
         revalidatePath("/admin/stores")
-        return { success: true, status: 'checked-out', message: 'Успешный выход' }
+        return { success: true, status: 'CHECKED_OUT', message: 'Успешный выход' }
     }
 
     return { error: "Неверный тип операции" }

@@ -68,6 +68,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   
   // Ref for counting unknown attempts
   const unknownAttemptsRef = useRef(0)
+  const [activeTab, setActiveTab] = useState<'scanner' | 'list'>('scanner')
 
 
   useEffect(() => {
@@ -368,329 +369,351 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   }
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 h-full max-h-[calc(100vh-8rem)]">
-      {/* Left Panel: Scanner — компактный размер */}
-      <Card className="lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float h-fit max-h-[70vh] lg:max-h-[calc(100vh-10rem)]">
-        <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10 flex flex-row items-center justify-between h-auto min-h-[5rem] px-6">
-            <div className="space-y-1">
-                {preselectedStoreId ? (
-                    <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-                        <CardTitle className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
-                            <Store className="h-8 w-8" />
-                            {stores.find(s => s.id === selectedStoreId)?.name || fetchedStoreName || (stores.length === 0 ? 'Загрузка магазина...' : 'Магазин не найден')}
-                        </CardTitle>
-                        <CardDescription className="flex items-center gap-2 text-base mt-1">
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary w-fit">
-                                <Lock className="h-3 w-3" />
-                                <span className="text-xs font-semibold">Терминал активен</span>
-                            </div>
-                            <span className="text-muted-foreground text-sm">Система учета времени</span>
-                        </CardDescription>
-                    </div>
-                ) : (
-                    <div>
-                        <CardTitle className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                             <ScanFace className="h-6 w-6 text-muted-foreground" />
-                             Настройка терминала
-                        </CardTitle>
-                        <CardDescription>
-                            Выберите магазин для начала работы
-                        </CardDescription>
-                    </div>
-                )}
-            </div>
+    <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
+      {/* Mobile View Toggles */}
+      <div className="lg:hidden flex mb-4 bg-muted/50 p-1 rounded-xl">
+        <Button 
+           variant={activeTab === 'scanner' ? 'default' : 'ghost'} 
+           className={`flex-1 rounded-lg ${activeTab === 'scanner' ? 'shadow-sm' : ''}`}
+           onClick={() => setActiveTab('scanner')}
+        >
+           <ScanFace className="mr-2 h-4 w-4" />
+           Терминал
+        </Button>
+        <Button 
+           variant={activeTab === 'list' ? 'default' : 'ghost'} 
+           className={`flex-1 rounded-lg ${activeTab === 'list' ? 'shadow-sm' : ''}`}
+           onClick={() => setActiveTab('list')}
+        >
+           <Clock className="mr-2 h-4 w-4" />
+           Активность
+        </Button>
+      </div>
 
-            <div className="flex items-center gap-4">
-                {preselectedStoreId ? (
-                     <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        onClick={() => {
-                            setSelectedStoreId('')
-                            if (onResetStore) onResetStore()
-                        }} 
-                        className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors" 
-                        title="Выйти из режима терминала"
-                     >
-                        <LogOut className="h-5 w-5" />
-                     </Button>
-                ) : (
-                    <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                      <SelectTrigger className="w-[200px] bg-background border-input shadow-sm">
-                        <SelectValue placeholder="Выберите магазин" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stores.map((store) => (
-                          <SelectItem key={store.id} value={store.id}>
-                            {store.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                )}
-            </div>
-        </CardHeader>
-        
-        <CardContent className="flex-1 flex flex-col p-0 relative bg-black/5 dark:bg-black/40">
-          {step === 'loading' ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-6 p-12">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
-                    <Loader2 className="h-16 w-16 animate-spin text-primary relative z-10" />
-                </div>
-                <div className="w-full max-w-md space-y-3 text-center">
-                    <h3 className="text-lg font-medium">{verificationStatus}</h3>
-                    <Progress value={loadingProgress} className="h-2" />
-                    <p className="text-xs text-muted-foreground">Загрузка нейросетевых моделей и биометрических данных...</p>
-                </div>
-            </div>
-          ) : !scanMode ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 gap-4 sm:gap-8 animate-in fade-in duration-500">
-                {/* Адаптивная сетка: 2 колонки на всех экранах, меньшие отступы на мобильных */}
-                <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full max-w-2xl h-full max-h-[250px] sm:max-h-[400px]">
-                    <Button 
-                        variant="outline" 
-                        className="h-full flex flex-col gap-3 sm:gap-6 hover:bg-green-500/5 hover:border-green-500/50 hover:text-green-600 dark:hover:text-green-400 transition-all group border-2 rounded-2xl p-4 sm:p-6"
-                        onClick={() => setScanMode('in')}
-                    >
-                        <div className="p-3 sm:p-6 rounded-full bg-green-100 dark:bg-green-900/20 group-hover:scale-110 transition-transform duration-300">
-                            <UserCheck className="h-10 w-10 sm:h-16 sm:w-16 text-green-600 dark:text-green-400" />
-                        </div>
-                        <div className="space-y-1">
-                            <span className="text-xl sm:text-3xl font-bold">ВХОД</span>
-                            <p className="text-xs sm:text-base text-muted-foreground group-hover:text-green-600/80 dark:group-hover:text-green-400/80 hidden sm:block">Начать рабочий день</p>
-                        </div>
-                    </Button>
+      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 flex-1 min-h-0">
+        {/* Left Panel: Scanner */}
+        <Card className={`lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float h-full lg:max-h-[calc(100vh-10rem)] ${activeTab === 'list' ? 'hidden lg:flex' : 'flex'}`}>
+          <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10 flex flex-row items-center justify-between h-auto min-h-[5rem] px-6">
+              <div className="space-y-1">
+                  {preselectedStoreId ? (
+                      <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                          <CardTitle className="text-3xl font-bold tracking-tight text-primary flex items-center gap-3">
+                              <Store className="h-8 w-8" />
+                              {stores.find(s => s.id === selectedStoreId)?.name || fetchedStoreName || (stores.length === 0 ? 'Загрузка магазина...' : 'Магазин не найден')}
+                          </CardTitle>
+                          <CardDescription className="flex items-center gap-2 text-base mt-1">
+                              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary w-fit">
+                                  <Lock className="h-3 w-3" />
+                                  <span className="text-xs font-semibold">Терминал активен</span>
+                              </div>
+                              <span className="text-muted-foreground text-sm">Система учета времени</span>
+                          </CardDescription>
+                      </div>
+                  ) : (
+                      <div>
+                          <CardTitle className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                               <ScanFace className="h-6 w-6 text-muted-foreground" />
+                               Настройка терминала
+                          </CardTitle>
+                          <CardDescription>
+                              Выберите магазин для начала работы
+                          </CardDescription>
+                      </div>
+                  )}
+              </div>
 
-                    <Button 
-                        variant="outline" 
-                        className="h-full flex flex-col gap-3 sm:gap-6 hover:bg-orange-500/5 hover:border-orange-500/50 hover:text-orange-600 dark:hover:text-orange-400 transition-all group border-2 rounded-2xl p-4 sm:p-6"
-                        onClick={() => setScanMode('out')}
-                    >
-                        <div className="p-3 sm:p-6 rounded-full bg-orange-100 dark:bg-orange-900/20 group-hover:scale-110 transition-transform duration-300">
-                            <UserMinus className="h-10 w-10 sm:h-16 sm:w-16 text-orange-600 dark:text-orange-400" />
-                        </div>
-                        <div className="space-y-1">
-                            <span className="text-xl sm:text-3xl font-bold">ВЫХОД</span>
-                            <p className="text-xs sm:text-base text-muted-foreground group-hover:text-orange-600/80 dark:group-hover:text-orange-400/80 hidden sm:block">Завершить работу</p>
-                        </div>
-                    </Button>
-                </div>
-            </div>
-          ) : (
-            <div className="flex-1 relative flex flex-col">
-                {/* Camera Header */}
-                <div className="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent">
-                    <Badge 
-                        variant={scanMode === 'in' ? "default" : "destructive"} 
-                        className="text-base px-4 py-1.5 shadow-lg backdrop-blur-md"
-                    >
-                        {scanMode === 'in' ? "РЕЖИМ: ВХОД" : "РЕЖИМ: ВЫХОД"}
-                    </Badge>
-                    <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        onClick={() => setScanMode(null)}
-                        className="shadow-lg backdrop-blur-md bg-white/10 hover:bg-white/20 text-white border-white/20"
-                    >
-                        <XCircle className="mr-2 h-4 w-4" />
-                        Отмена
-                    </Button>
-                </div>
+              <div className="flex items-center gap-4">
+                  {preselectedStoreId ? (
+                       <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => {
+                              setSelectedStoreId('')
+                              if (onResetStore) onResetStore()
+                          }} 
+                          className="h-10 w-10 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-colors" 
+                          title="Выйти из режима терминала"
+                       >
+                          <LogOut className="h-5 w-5" />
+                       </Button>
+                  ) : (
+                      <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
+                        <SelectTrigger className="w-[200px] bg-background border-input shadow-sm">
+                          <SelectValue placeholder="Выберите магазин" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {stores.map((store) => (
+                            <SelectItem key={store.id} value={store.id}>
+                              {store.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                  )}
+              </div>
+          </CardHeader>
+          
+          <CardContent className="flex-1 flex flex-col p-0 relative bg-black/5 dark:bg-black/40">
+            {step === 'loading' ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-6 p-12">
+                  <div className="relative">
+                      <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full animate-pulse" />
+                      <Loader2 className="h-16 w-16 animate-spin text-primary relative z-10" />
+                  </div>
+                  <div className="w-full max-w-md space-y-3 text-center">
+                      <h3 className="text-lg font-medium">{verificationStatus}</h3>
+                      <Progress value={loadingProgress} className="h-2" />
+                      <p className="text-xs text-muted-foreground">Загрузка нейросетевых моделей и биометрических данных...</p>
+                  </div>
+              </div>
+            ) : !scanMode ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 gap-4 sm:gap-8 animate-in fade-in duration-500">
+                  {/* Адаптивная сетка: 2 колонки на всех экранах, меньшие отступы на мобильных */}
+                  <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full max-w-2xl h-full max-h-[250px] sm:max-h-[400px]">
+                      <Button 
+                          variant="outline" 
+                          className="h-full flex flex-col gap-3 sm:gap-6 hover:bg-green-500/5 hover:border-green-500/50 hover:text-green-600 dark:hover:text-green-400 transition-all group border-2 rounded-2xl p-4 sm:p-6"
+                          onClick={() => setScanMode('in')}
+                      >
+                          <div className="p-3 sm:p-6 rounded-full bg-green-100 dark:bg-green-900/20 group-hover:scale-110 transition-transform duration-300">
+                              <UserCheck className="h-10 w-10 sm:h-16 sm:w-16 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div className="space-y-1">
+                              <span className="text-xl sm:text-3xl font-bold">ВХОД</span>
+                              <p className="text-xs sm:text-base text-muted-foreground group-hover:text-green-600/80 dark:group-hover:text-green-400/80 hidden sm:block">Начать рабочий день</p>
+                          </div>
+                      </Button>
 
-                {/* Camera Viewport */}
-                <div className="relative overflow-hidden bg-black flex items-center justify-center aspect-video max-h-[50vh]">
-                    {isSupported && !cameraError && (
-                        <Webcam
-                            audio={false}
-                            ref={webcamRef}
-                            screenshotFormat="image/jpeg"
-                            className="w-full h-full object-contain"
-                            videoConstraints={{ 
-                                width: 1280,
-                                height: 720,
-                                facingMode: "user" 
-                            }}
-                            mirrored={true}
-                            onUserMediaError={handleUserMediaError}
-                        />
-                    )}
-                    
-                    {/* Error State */}
-                    {cameraError && (
-                        <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-8 text-center z-50">
-                            <div className="bg-red-500/10 p-6 rounded-full mb-6">
-                                <AlertCircle className="h-16 w-16 text-red-500" />
-                            </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Ошибка доступа к камере</h3>
-                            <p className="text-gray-400 mb-8 max-w-md">{cameraError}</p>
-                            <Button onClick={() => window.location.reload()} variant="secondary" size="lg">
-                                <RefreshCw className="mr-2 h-5 w-5" />
-                                Перезагрузить страницу
-                            </Button>
-                        </div>
-                    )}
-                    
-                    {/* RESULT OVERLAY - NEW */}
-                    {resultOverlay && (
-                         <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
-                             <Card className={`max-w-sm w-full border-0 shadow-2xl ${
-                                 resultOverlay.type === 'success' ? 'bg-green-500/10 border-green-500/50' :
-                                 resultOverlay.type === 'already' ? 'bg-orange-500/10 border-orange-500/50' : 
-                                 'bg-red-500/10 border-red-500/50'
-                             } border-2`}>
-                                 <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
-                                     
-                                     {resultOverlay.employee && (
-                                         <Avatar className="h-24 w-24 border-4 border-background shadow-xl mb-2">
-                                             <AvatarImage src={resultOverlay.employee.imageUrl} />
-                                             <AvatarFallback className="text-2xl">{resultOverlay.employee.firstName[0]}</AvatarFallback>
-                                         </Avatar>
-                                     )}
+                      <Button 
+                          variant="outline" 
+                          className="h-full flex flex-col gap-3 sm:gap-6 hover:bg-orange-500/5 hover:border-orange-500/50 hover:text-orange-600 dark:hover:text-orange-400 transition-all group border-2 rounded-2xl p-4 sm:p-6"
+                          onClick={() => setScanMode('out')}
+                      >
+                          <div className="p-3 sm:p-6 rounded-full bg-orange-100 dark:bg-orange-900/20 group-hover:scale-110 transition-transform duration-300">
+                              <UserMinus className="h-10 w-10 sm:h-16 sm:w-16 text-orange-600 dark:text-orange-400" />
+                          </div>
+                          <div className="space-y-1">
+                              <span className="text-xl sm:text-3xl font-bold">ВЫХОД</span>
+                              <p className="text-xs sm:text-base text-muted-foreground group-hover:text-orange-600/80 dark:group-hover:text-orange-400/80 hidden sm:block">Завершить работу</p>
+                          </div>
+                      </Button>
+                  </div>
+              </div>
+            ) : (
+              <div className="flex-1 relative flex flex-col">
+                  {/* Camera Header */}
+                  <div className="absolute top-0 left-0 right-0 z-20 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent">
+                      <Badge 
+                          variant={scanMode === 'in' ? "default" : "destructive"} 
+                          className="text-base px-4 py-1.5 shadow-lg backdrop-blur-md"
+                      >
+                          {scanMode === 'in' ? "РЕЖИМ: ВХОД" : "РЕЖИМ: ВЫХОД"}
+                      </Badge>
+                      <Button 
+                          variant="secondary" 
+                          size="sm" 
+                          onClick={() => setScanMode(null)}
+                          className="shadow-lg backdrop-blur-md bg-white/10 hover:bg-white/20 text-white border-white/20"
+                      >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Отмена
+                      </Button>
+                  </div>
 
-                                     <div className={`p-4 rounded-full ${
-                                         resultOverlay.type === 'success' ? 'bg-green-500 text-white' :
-                                         resultOverlay.type === 'already' ? 'bg-orange-500 text-white' :
-                                         'bg-red-500 text-white'
-                                     }`}>
-                                         {resultOverlay.type === 'success' && <CheckCircle2 className="h-8 w-8" />}
-                                         {resultOverlay.type === 'already' && <AlertCircle className="h-8 w-8" />}
-                                         {resultOverlay.type === 'error' && <XCircle className="h-8 w-8" />}
-                                     </div>
+                  {/* Camera Viewport */}
+                  <div className="relative overflow-hidden bg-black flex items-center justify-center aspect-video max-h-[50vh]">
+                      {isSupported && !cameraError && (
+                          <Webcam
+                              audio={false}
+                              ref={webcamRef}
+                              screenshotFormat="image/jpeg"
+                              className="w-full h-full object-contain"
+                              videoConstraints={{ 
+                                  width: 1280,
+                                  height: 720,
+                                  facingMode: "user" 
+                              }}
+                              mirrored={true}
+                              onUserMediaError={handleUserMediaError}
+                          />
+                      )}
+                      
+                      {/* Error State */}
+                      {cameraError && (
+                          <div className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center p-8 text-center z-50">
+                              <div className="bg-red-500/10 p-6 rounded-full mb-6">
+                                  <AlertCircle className="h-16 w-16 text-red-500" />
+                              </div>
+                              <h3 className="text-xl font-bold text-white mb-2">Ошибка доступа к камере</h3>
+                              <p className="text-gray-400 mb-8 max-w-md">{cameraError}</p>
+                              <Button onClick={() => window.location.reload()} variant="secondary" size="lg">
+                                  <RefreshCw className="mr-2 h-5 w-5" />
+                                  Перезагрузить страницу
+                              </Button>
+                          </div>
+                      )}
+                      
+                      {/* RESULT OVERLAY - NEW */}
+                      {resultOverlay && (
+                           <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in zoom-in duration-300">
+                               <Card className={`max-w-sm w-full border-0 shadow-2xl ${
+                                   resultOverlay?.type === 'success' ? 'bg-green-500/10 border-green-500/50' :
+                                   resultOverlay?.type === 'already' ? 'bg-orange-500/10 border-orange-500/50' : 
+                                   'bg-red-500/10 border-red-500/50'
+                               } border-2`}>
+                                   <CardContent className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+                                       
+                                       {resultOverlay?.employee && (
+                                           <Avatar className="h-24 w-24 border-4 border-background shadow-xl mb-2">
+                                               <AvatarImage src={resultOverlay?.employee.imageUrl} />
+                                               <AvatarFallback className="text-2xl">{resultOverlay?.employee.firstName[0]}</AvatarFallback>
+                                           </Avatar>
+                                       )}
 
-                                     <div className="space-y-1">
-                                         <h2 className="text-2xl font-bold text-white">
-                                             {resultOverlay.employee 
-                                                 ? `${resultOverlay.employee.firstName} ${resultOverlay.employee.lastName}`
-                                                 : (resultOverlay.type === 'error' ? 'Ошибка' : resultOverlay.type)
-                                             }
-                                         </h2>
-                                         <p className="text-lg text-white/90 font-medium">
-                                             {resultOverlay.message}
-                                         </p>
-                                     </div>
-                                 </CardContent>
-                             </Card>
-                         </div>
-                    )}
+                                       <div className={`p-4 rounded-full ${
+                                           resultOverlay?.type === 'success' ? 'bg-green-500 text-white' :
+                                           resultOverlay?.type === 'already' ? 'bg-orange-500 text-white' :
+                                           'bg-red-500 text-white'
+                                       }`}>
+                                           {resultOverlay?.type === 'success' && <CheckCircle2 className="h-8 w-8" />}
+                                           {resultOverlay?.type === 'already' && <AlertCircle className="h-8 w-8" />}
+                                           {resultOverlay?.type === 'error' && <XCircle className="h-8 w-8" />}
+                                       </div>
 
-                    {/* Scanning Face Frame */}
-                    {!resultOverlay && !cameraError && (
-                         <div className={`absolute inset-0 border-[6px] transition-colors duration-300 z-10 ${
-                             verificationStatus.includes('Распознан') ? 'border-green-500/80' : 'border-white/10'
-                         }`}>
-                             {/* Attempts counter in center if verifying */}
-                             {unknownAttemptsRef.current > 0 && (
-                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform">
-                                      <div className="text-6xl font-bold text-white/50 animate-pulse">
-                                          {unknownAttemptsRef.current}
-                                      </div>
-                                 </div>
-                             )}
-                         </div>
-                    )}
+                                       <div className="space-y-1">
+                                           <h2 className="text-2xl font-bold text-white">
+                                               {resultOverlay?.employee 
+                                                   ? `${resultOverlay?.employee.firstName} ${resultOverlay?.employee.lastName}`
+                                                   : (resultOverlay?.type === 'error' ? 'Ошибка' : resultOverlay?.type)
+                                               }
+                                           </h2>
+                                           <p className="text-lg text-white/90 font-medium">
+                                               {resultOverlay?.message}
+                                           </p>
+                                       </div>
+                                   </CardContent>
+                               </Card>
+                           </div>
+                      )}
 
-                    {/* Scanning Animation */}
-                    {!employee && !cameraError && !resultOverlay && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 border-2 border-white/30 rounded-lg relative">
-                                <div className="absolute top-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-t-4 border-l-4 border-primary -mt-1 -ml-1" />
-                                <div className="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-t-4 border-r-4 border-primary -mt-1 -mr-1" />
-                                <div className="absolute bottom-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-b-4 border-l-4 border-primary -mb-1 -ml-1" />
-                                <div className="absolute bottom-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-b-4 border-r-4 border-primary -mb-1 -mr-1" />
-                                <ScanLine className="absolute inset-0 m-auto h-full w-full text-primary/20 animate-pulse" />
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* Status Badge */}
-                    {!resultOverlay && (
-                        <div className="absolute bottom-8 left-0 right-0 flex justify-center z-20">
-                            <div className={`px-6 py-2 rounded-full backdrop-blur-md border shadow-xl transition-all duration-300 ${
-                                verificationStatus.includes('Распознан') 
-                                    ? 'bg-green-500/20 border-green-500/50 text-green-100' 
-                                    : verificationStatus.includes('Не распознан')
-                                    ? 'bg-red-500/20 border-red-500/50 text-red-100'
-                                    : 'bg-black/60 border-white/10 text-white'
-                            }`}>
-                                <span className="font-medium flex items-center gap-2">
-                                    {verificationStatus.includes('Распознан') && <CheckCircle2 className="h-4 w-4" />}
-                                    {verificationStatus}
-                                </span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                      {/* Scanning Face Frame */}
+                      {!resultOverlay && !cameraError && (
+                           <div className={`absolute inset-0 border-[6px] transition-colors duration-300 z-10 ${
+                               verificationStatus.includes('Распознан') ? 'border-green-500/80' : 'border-white/10'
+                           }`}>
+                               {/* Attempts counter in center if verifying */}
+                               {unknownAttemptsRef.current > 0 && (
+                                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transform">
+                                        <div className="text-6xl font-bold text-white/50 animate-pulse">
+                                            {unknownAttemptsRef.current}
+                                        </div>
+                                   </div>
+                               )}
+                           </div>
+                      )}
 
-      {/* Right Panel: Recent Activity — скрыт на мобильных для экономии места */}
-      <Card className="hidden lg:flex lg:col-span-5 flex-col h-full neo-card neo-float">
-        <CardHeader className="pb-4 border-b">
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" />
-            Активность за сегодня
-          </CardTitle>
-          <CardDescription>
-            Последние действия сотрудников
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex-1 p-0 overflow-hidden">
-          <ScrollArea className="h-full">
-            <div className="p-6 space-y-4">
-                {recentLogs.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-3">
-                        <div className="bg-muted rounded-full p-4">
-                            <Clock className="h-8 w-8 opacity-50" />
-                        </div>
-                        <p>Записей пока нет</p>
-                    </div>
-                ) : (
-                    recentLogs.map((log) => (
-                        <div key={log.id} className="group flex items-start gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 hover:shadow-md transition-all duration-200">
-                            <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                                <AvatarImage src={log.employee.imageUrl} />
-                                <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                    {log.employee.firstName[0]}{log.employee.lastName[0]}
-                                </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between mb-1">
-                                    <p className="font-semibold truncate">
-                                        {log.employee.firstName} {log.employee.lastName}
-                                    </p>
-                                    <span className="text-xs text-muted-foreground font-mono">
-                                        {new Date(log.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </span>
-                                </div>
-                                <p className="text-xs text-muted-foreground mb-3 truncate">{log.employee.position}</p>
-                                
-                                <div className="flex flex-wrap gap-2">
-                                    <Badge variant="outline" className="bg-green-500/5 text-green-600 border-green-200 dark:border-green-900">
-                                        Вход: {new Date(log.checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </Badge>
-                                    {log.checkOut && (
-                                        <Badge variant="outline" className="bg-orange-500/5 text-orange-600 border-orange-200 dark:border-orange-900">
-                                            Выход: {new Date(log.checkOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
-          </ScrollArea>
-        </CardContent>
-        <CardFooter className="border-t bg-muted/20 p-4">
-            <div className="w-full flex justify-between text-xs text-muted-foreground">
-                <span>Всего записей: {recentLogs.length}</span>
-                <span>Обновлено: {new Date().toLocaleTimeString()}</span>
-            </div>
-        </CardFooter>
-      </Card>
+                      {/* Scanning Animation */}
+                      {!employee && !cameraError && !resultOverlay && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                              <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 border-2 border-white/30 rounded-lg relative">
+                                  <div className="absolute top-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-t-4 border-l-4 border-primary -mt-1 -ml-1" />
+                                  <div className="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-t-4 border-r-4 border-primary -mt-1 -mr-1" />
+                                  <div className="absolute bottom-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-b-4 border-l-4 border-primary -mb-1 -ml-1" />
+                                  <div className="absolute bottom-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-b-4 border-r-4 border-primary -mb-1 -mr-1" />
+                                  <ScanLine className="absolute inset-0 m-auto h-full w-full text-primary/20 animate-pulse" />
+                              </div>
+                          </div>
+                      )}
+                      
+                      {/* Status Badge */}
+                      {!resultOverlay && (
+                          <div className="absolute bottom-8 left-0 right-0 flex justify-center z-20">
+                              <div className={`px-6 py-2 rounded-full backdrop-blur-md border shadow-xl transition-all duration-300 ${
+                                  verificationStatus.includes('Распознан') 
+                                      ? 'bg-green-500/20 border-green-500/50 text-green-100' 
+                                      : verificationStatus.includes('Не распознан')
+                                      ? 'bg-red-500/20 border-red-500/50 text-red-100'
+                                      : 'bg-black/60 border-white/10 text-white'
+                              }`}>
+                                  <span className="font-medium flex items-center gap-2">
+                                      {verificationStatus.includes('Распознан') && <CheckCircle2 className="h-4 w-4" />}
+                                      {verificationStatus}
+                                  </span>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Right Panel: Recent Activity */}
+        <Card className={`lg:col-span-5 flex-col h-full neo-card neo-float lg:flex ${activeTab === 'list' ? 'flex' : 'hidden'}`}>
+          <CardHeader className="pb-4 border-b">
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              Активность за сегодня
+            </CardTitle>
+            <CardDescription>
+              Последние действия сотрудников
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1 p-0 overflow-hidden">
+            <ScrollArea className="h-full">
+              <div className="p-6 space-y-4">
+                  {recentLogs.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-3">
+                          <div className="bg-muted rounded-full p-4">
+                              <Clock className="h-8 w-8 opacity-50" />
+                          </div>
+                          <p>Записей пока нет</p>
+                      </div>
+                  ) : (
+                      recentLogs.map((log) => (
+                          <div key={log.id} className="group flex items-start gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 hover:shadow-md transition-all duration-200">
+                              <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
+                                  <AvatarImage src={log.employee.imageUrl} />
+                                  <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                      {log.employee.firstName[0]}{log.employee.lastName[0]}
+                                  </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between mb-1">
+                                      <p className="font-semibold truncate">
+                                          {log.employee.firstName} {log.employee.lastName}
+                                      </p>
+                                      <span className="text-xs text-muted-foreground font-mono">
+                                          {new Date(log.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                      </span>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground mb-3 truncate">{log.employee.position}</p>
+                                  
+                                  <div className="flex flex-wrap gap-2">
+                                      <Badge variant="outline" className="bg-green-500/5 text-green-600 border-green-200 dark:border-green-900">
+                                          Вход: {new Date(log.checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                      </Badge>
+                                      {log.checkOut && (
+                                          <Badge variant="outline" className="bg-orange-500/5 text-orange-600 border-orange-200 dark:border-orange-900">
+                                              Выход: {new Date(log.checkOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                          </Badge>
+                                      )}
+                                  </div>
+                              </div>
+                          </div>
+                      ))
+                  )}
+              </div>
+            </ScrollArea>
+          </CardContent>
+          <CardFooter className="border-t bg-muted/20 p-4">
+              <div className="w-full flex justify-between text-xs text-muted-foreground">
+                  <span>Всего записей: {recentLogs.length}</span>
+                  <span>Обновлено: {new Date().toLocaleTimeString()}</span>
+              </div>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }

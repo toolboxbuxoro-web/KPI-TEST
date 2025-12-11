@@ -93,63 +93,94 @@ export function AttendanceFlow() {
   // Store Login Form
   if (isLoggingIn) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 animate-in fade-in slide-in-from-bottom-5 px-4 py-8">
-        <Card className="w-full max-w-md neo-card neo-float p-2">
-          <CardHeader className="text-center pb-6">
-            <div className="h-20 w-20 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto mb-6">
-              <Building2 className="h-10 w-10 text-orange-500" />
+      <div className="flex flex-col items-center justify-center min-h-[80vh] w-full px-4 py-8 animate-in fade-in zoom-in-95 duration-500">
+        <Card className="w-full max-w-lg border-white/20 bg-white/10 backdrop-blur-xl shadow-2xl relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-transparent to-transparent pointer-events-none" />
+          
+          <CardHeader className="text-center pb-2 pt-8 relative z-10">
+            <div className="h-24 w-24 rounded-3xl bg-gradient-to-br from-orange-500 to-orange-600 p-[1px] mx-auto mb-6 shadow-lg shadow-orange-500/20">
+              <div className="h-full w-full rounded-[23px] bg-background/80 flex items-center justify-center backdrop-blur-sm">
+                <Building2 className="h-10 w-10 text-orange-500" />
+              </div>
             </div>
-            <CardTitle className="text-2xl md:text-3xl">Вход в терминал</CardTitle>
-            <CardDescription className="text-base mt-2">Введите логин и пароль магазина</CardDescription>
+            <CardTitle className="text-3xl font-bold tracking-tight">Вход в терминал</CardTitle>
+            <CardDescription className="text-lg mt-2 text-muted-foreground">
+              Введите данные для активации точки
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          
+          <CardContent className="space-y-8 p-8 relative z-10">
             <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="store-login">Логин магазина</Label>
-                <Input
-                  id="store-login"
-                  placeholder="Введите логин..."
-                  value={login}
-                  onChange={(e) => setLogin(e.target.value)}
-                  className="neo-input h-12"
-                  autoComplete="username"
-                />
+                <Label htmlFor="store-login" className="text-sm font-medium ml-1">Логин магазина</Label>
+                <div className="relative group">
+                  <div className="absolute left-3 top-3.5 text-muted-foreground group-focus-within:text-orange-500 transition-colors">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <Input
+                    id="store-login"
+                    placeholder="store_01"
+                    value={login}
+                    onChange={(e) => setLogin(e.target.value)}
+                    className="pl-10 h-12 bg-white/10 border-white/20 focus:border-orange-500/50 focus:ring-orange-500/20 transition-all text-base placeholder:text-muted-foreground/50"
+                    autoComplete="username"
+                  />
+                </div>
               </div>
+              
               <div className="space-y-2">
-                <Label htmlFor="store-password">Пароль</Label>
-                <Input
-                  id="store-password"
-                  type="password"
-                  placeholder="Введите пароль..."
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="neo-input h-12"
-                  autoComplete="current-password"
-                />
+                <div className="flex justify-between items-center ml-1">
+                  <Label htmlFor="store-password">Пароль</Label>
+                </div>
+                <div className="relative group">
+                  <div className="absolute left-3 top-3.5 text-muted-foreground group-focus-within:text-orange-500 transition-colors">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <Input
+                    id="store-password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 h-12 bg-white/10 border-white/20 focus:border-orange-500/50 focus:ring-orange-500/20 transition-all text-base placeholder:text-muted-foreground/50 font-mono tracking-widest"
+                    autoComplete="current-password"
+                  />
+                </div>
               </div>
-              <Button 
-                type="submit"
-                className="w-full neo-gradient h-12 text-base mt-4" 
-                size="lg"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                ) : (
-                  <KeyRound className="mr-2 h-5 w-5" />
-                )}
-                Войти в терминал
-              </Button>
+
+              <div className="pt-2">
+                <Button 
+                  type="submit"
+                  className="w-full h-12 text-base font-medium shadow-lg shadow-orange-500/20 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]" 
+                  size="lg"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  ) : (
+                    <div className="flex items-center">
+                      <span>Войти в систему</span>
+                      <ArrowRight className="ml-2 h-5 w-5 opacity-80" />
+                    </div>
+                  )}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>
-        <Button variant="outline" onClick={() => setIsLoggingIn(false)} className="rounded-full gap-2">
+        
+        <Button 
+          variant="ghost" 
+          onClick={() => setIsLoggingIn(false)} 
+          className="rounded-full gap-2 text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+        >
           <ArrowLeft className="h-4 w-4" />
-          Назад
+          Вернуться назад
         </Button>
       </div>
     )
   }
+
 
   // Main landing
   return (
@@ -224,29 +255,7 @@ export function AttendanceFlow() {
                </CardHeader>
              </Card>
            </Link>
-         ) : (
-           <Link href="/login" className="md:col-span-2">
-             <Card className="group relative overflow-hidden neo-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-2 border-transparent hover:border-blue-500/30">
-               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-               <CardHeader className="pb-3">
-                 <div className="flex items-center gap-4">
-                   <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                     <ShieldCheck className="h-6 w-6 text-blue-500" />
-                   </div>
-                   <div className="flex-1">
-                     <CardTitle className="text-xl flex items-center gap-2">
-                       Войти в систему
-                       <ArrowRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-blue-500" />
-                     </CardTitle>
-                     <CardDescription>
-                       Доступ к панели управления для администраторов
-                     </CardDescription>
-                   </div>
-                 </div>
-               </CardHeader>
-             </Card>
-           </Link>
-         )}
+         ) : null}
        </div>
 
        {/* Quick Stats or Info */}

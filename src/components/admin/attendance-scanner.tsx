@@ -69,9 +69,18 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
      }
   }, [preselectedStoreId])
 
-  // Load models and employees on mount
+  /**
+   * Инициализация системы распознавания лиц.
+   * 
+   * Этапы загрузки:
+   * 1. ssdMobilenetv1 — модель детектирования лиц в кадре
+   * 2. faceLandmark68Net — модель определения 68 ключевых точек лица
+   * 3. faceRecognitionNet — модель создания уникального "отпечатка" (дескриптора) лица
+   * 4. Загрузка дескрипторов всех сотрудников из базы данных
+   * 5. Создание FaceMatcher с порогом сходства 0.45 (чем ниже — тем строже)
+   */
   useEffect(() => {
-    // Check for browser support
+    // Проверка поддержки браузером API камеры
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraError("Ваш браузер не поддерживает доступ к камере или соединение не защищено (требуется HTTPS).")
       setVerificationStatus("Ошибка совместимости")
@@ -158,10 +167,23 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
     return () => clearInterval(interval)
   }, [selectedStoreId])
 
-  // Cooldown map to prevent spamming
+  // Карта cooldown для предотвращения повторных сканирований (employeeId -> timestamp)
   const [lastScanned, setLastScanned] = useState<Record<string, number>>({})
 
-  // Main Loop
+  /**
+   * Главный цикл обработки видеопотока (вызывается 10 раз в секунду).
+   * 
+   * Процесс работы:
+   * 1. Захватывает скриншот с веб-камеры (JPEG)
+   * 2. Передает изображение в face-api.js для детектирования лица
+   * 3. Проверяет качество — лицо должно быть >= 150px в ширину
+   * 4. Извлекает 128-мерный дескриптор лица
+   * 5. Сравнивает с базой данных через FaceMatcher.findBestMatch()
+   * 6. При совпадении (distance < 0.45) регистрирует посещение
+   * 
+   * Защита от спама: повторное распознавание того же сотрудника
+   * блокируется на 60 секунд (см. lastScanned).
+   */
   const processFrame = async () => {
     if (!webcamRef.current || !modelsLoaded || isLoading || step !== 'scanning') return
     
@@ -271,9 +293,9 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-12 lg:h-[calc(100vh-10rem)]">
-      {/* Left Panel: Scanner */}
-      <Card className="lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float">
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8 min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-10rem)]">
+      {/* Left Panel: Scanner — занимает минимум 60vh на мобильных */}
+      <Card className="lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float min-h-[60vh] lg:min-h-0">
         <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10 flex flex-row items-center justify-between h-auto min-h-[5rem] px-6">
             <div className="space-y-1">
                 {preselectedStoreId ? (
@@ -348,33 +370,34 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                 </div>
             </div>
           ) : !scanMode ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 gap-8 animate-in fade-in duration-500">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl h-full max-h-[400px]">
+            <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 gap-4 sm:gap-8 animate-in fade-in duration-500">
+                {/* Адаптивная сетка: 2 колонки на всех экранах, меньшие отступы на мобильных */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full max-w-2xl h-full max-h-[250px] sm:max-h-[400px]">
                     <Button 
                         variant="outline" 
-                        className="h-full flex flex-col gap-6 hover:bg-green-500/5 hover:border-green-500/50 hover:text-green-600 dark:hover:text-green-400 transition-all group border-2 rounded-2xl"
+                        className="h-full flex flex-col gap-3 sm:gap-6 hover:bg-green-500/5 hover:border-green-500/50 hover:text-green-600 dark:hover:text-green-400 transition-all group border-2 rounded-2xl p-4 sm:p-6"
                         onClick={() => setScanMode('in')}
                     >
-                        <div className="p-6 rounded-full bg-green-100 dark:bg-green-900/20 group-hover:scale-110 transition-transform duration-300">
-                            <UserCheck className="h-16 w-16 text-green-600 dark:text-green-400" />
+                        <div className="p-3 sm:p-6 rounded-full bg-green-100 dark:bg-green-900/20 group-hover:scale-110 transition-transform duration-300">
+                            <UserCheck className="h-10 w-10 sm:h-16 sm:w-16 text-green-600 dark:text-green-400" />
                         </div>
                         <div className="space-y-1">
-                            <span className="text-3xl font-bold">ВХОД</span>
-                            <p className="text-muted-foreground group-hover:text-green-600/80 dark:group-hover:text-green-400/80">Начать рабочий день</p>
+                            <span className="text-xl sm:text-3xl font-bold">ВХОД</span>
+                            <p className="text-xs sm:text-base text-muted-foreground group-hover:text-green-600/80 dark:group-hover:text-green-400/80 hidden sm:block">Начать рабочий день</p>
                         </div>
                     </Button>
 
                     <Button 
                         variant="outline" 
-                        className="h-full flex flex-col gap-6 hover:bg-orange-500/5 hover:border-orange-500/50 hover:text-orange-600 dark:hover:text-orange-400 transition-all group border-2 rounded-2xl"
+                        className="h-full flex flex-col gap-3 sm:gap-6 hover:bg-orange-500/5 hover:border-orange-500/50 hover:text-orange-600 dark:hover:text-orange-400 transition-all group border-2 rounded-2xl p-4 sm:p-6"
                         onClick={() => setScanMode('out')}
                     >
-                        <div className="p-6 rounded-full bg-orange-100 dark:bg-orange-900/20 group-hover:scale-110 transition-transform duration-300">
-                            <UserMinus className="h-16 w-16 text-orange-600 dark:text-orange-400" />
+                        <div className="p-3 sm:p-6 rounded-full bg-orange-100 dark:bg-orange-900/20 group-hover:scale-110 transition-transform duration-300">
+                            <UserMinus className="h-10 w-10 sm:h-16 sm:w-16 text-orange-600 dark:text-orange-400" />
                         </div>
                         <div className="space-y-1">
-                            <span className="text-3xl font-bold">ВЫХОД</span>
-                            <p className="text-muted-foreground group-hover:text-orange-600/80 dark:group-hover:text-orange-400/80">Завершить работу</p>
+                            <span className="text-xl sm:text-3xl font-bold">ВЫХОД</span>
+                            <p className="text-xs sm:text-base text-muted-foreground group-hover:text-orange-600/80 dark:group-hover:text-orange-400/80 hidden sm:block">Завершить работу</p>
                         </div>
                     </Button>
                 </div>
@@ -438,14 +461,14 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                         verificationStatus.includes('Распознан') ? 'border-green-500/80' : 'border-white/10'
                     }`} />
 
-                    {/* Scanning Animation */}
+                    {/* Scanning Animation — адаптивный размер рамки */}
                     {!employee && !cameraError && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                            <div className="w-64 h-64 border-2 border-white/30 rounded-lg relative">
-                                <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-primary -mt-1 -ml-1" />
-                                <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-primary -mt-1 -mr-1" />
-                                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-primary -mb-1 -ml-1" />
-                                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-primary -mb-1 -mr-1" />
+                            <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 border-2 border-white/30 rounded-lg relative">
+                                <div className="absolute top-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-t-4 border-l-4 border-primary -mt-1 -ml-1" />
+                                <div className="absolute top-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-t-4 border-r-4 border-primary -mt-1 -mr-1" />
+                                <div className="absolute bottom-0 left-0 w-3 h-3 sm:w-4 sm:h-4 border-b-4 border-l-4 border-primary -mb-1 -ml-1" />
+                                <div className="absolute bottom-0 right-0 w-3 h-3 sm:w-4 sm:h-4 border-b-4 border-r-4 border-primary -mb-1 -mr-1" />
                                 <ScanLine className="absolute inset-0 m-auto h-full w-full text-primary/20 animate-pulse" />
                             </div>
                         </div>
@@ -470,8 +493,8 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
         </CardContent>
       </Card>
 
-      {/* Right Panel: Recent Activity */}
-      <Card className="lg:col-span-5 flex flex-col h-full neo-card neo-float">
+      {/* Right Panel: Recent Activity — скрыт на мобильных для экономии места */}
+      <Card className="hidden lg:flex lg:col-span-5 flex-col h-full neo-card neo-float">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-primary" />

@@ -306,9 +306,9 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   }
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8 h-full min-h-[70vh]">
-      {/* Left Panel: Scanner — занимает минимум 60vh на мобильных */}
-      <Card className="lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float min-h-[60vh] lg:min-h-0">
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 h-full max-h-[calc(100vh-8rem)]">
+      {/* Left Panel: Scanner — компактный размер */}
+      <Card className="lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float h-fit max-h-[70vh] lg:max-h-[calc(100vh-10rem)]">
         <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10 flex flex-row items-center justify-between h-auto min-h-[5rem] px-6">
             <div className="space-y-1">
                 {preselectedStoreId ? (
@@ -436,14 +436,14 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                     </Button>
                 </div>
 
-                {/* Camera Viewport */}
-                <div className="flex-1 relative overflow-hidden bg-black flex items-center justify-center">
+                {/* Camera Viewport — ограниченная высота */}
+                <div className="relative overflow-hidden bg-black flex items-center justify-center aspect-video max-h-[50vh]">
                     {isSupported && !cameraError && (
                         <Webcam
                             audio={false}
                             ref={webcamRef}
                             screenshotFormat="image/jpeg"
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                             videoConstraints={{ 
                                 width: 1280,
                                 height: 720,

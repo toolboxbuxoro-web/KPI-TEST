@@ -218,14 +218,14 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                 }
 
                 setVerificationStatus(`Распознан: ${match.label}`)
+                
+                // Сразу ставим cooldown чтобы предотвратить дублирование
+                setLastScanned(prev => ({...prev, [match.label]: now}))
+                
                 const emp = await getEmployee(match.label)
                 if (emp && !('error' in emp)) {
                     setEmployee(emp)
                     setVerificationStatus(`Распознан: ${emp.firstName} ${emp.lastName}`)
-                    
-                    // Update cooldown immediately to prevent double-fire
-                    setLastScanned(prev => ({...prev, [match.label]: now}))
-                    
                     await processAttendance(emp)
                 }
             } else {

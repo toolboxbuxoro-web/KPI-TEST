@@ -189,7 +189,8 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   const processFrame = async () => {
     // Проверяем ref ПЕРВЫМ делом для немедленной блокировки
     if (isProcessingRef.current) return
-    if (!webcamRef.current || !modelsLoaded || isLoading || step !== 'scanning') return
+    // Remove isLoading from blocking condition to allow background processing
+    if (!webcamRef.current || !modelsLoaded || step !== 'scanning') return
     
     const imageSrc = webcamRef.current.getScreenshot()
     if (!imageSrc) return
@@ -232,15 +233,16 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                 // Ставим cooldown для конкретного человека и режима
                 setLastScanned(prev => ({...prev, [scanKey]: now}))
                 
+                // СРАЗУ разблокируем сканер для следующего человека (Fire-and-Forget)
+                isProcessingRef.current = false
+
                 const emp = await getEmployee(match.label)
                 if (emp && !('error' in emp)) {
                     setEmployee(emp)
                     setVerificationStatus(`Распознан: ${emp.firstName} ${emp.lastName}`)
-                    await processAttendance(emp)
+                    // Запускаем в фоне, не блокируя цикл
+                    processAttendance(emp).catch(console.error)
                 }
-                
-                // Разблокируем после обработки
-                isProcessingRef.current = false
             } else {
                 setVerificationStatus('Лицо не распознано')
             }
@@ -265,24 +267,47 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   async function processAttendance(empData?: any) {
     const targetEmployee = empData || employee
     if (!targetEmployee || !scanMode) return
-    setIsLoading(true)
+    
+    // Не устанавливаем isLoading(true), так как это блокировало бы сканер (если бы мы его использовали)
+    // Мы хотим, чтобы сканер продолжал работать. 
+    
     try {
       const result = await registerAttendance(targetEmployee.id, scanMode, selectedStoreId || undefined)
       
       if (result.error) {
+        // Умный откат: если ошибка НЕ связана с тем, что человек уже отметился,
+        // то сбрасываем cooldown, чтобы он мог попробовать снова сразу.
+        if (!result.error.includes("уже отметились") && !result.error.includes("Сначала нужно")) {
+             setLastScanned(prev => {
+                const next = {...prev}
+                const scanKey = `${targetEmployee.id}-${scanMode}`
+                delete next[scanKey]
+                return next
+            })
+        }
         toast.error(result.error, { id: `attendance-error-${targetEmployee.id}` })
       } else {
         toast.success(result.message, { id: `attendance-success-${targetEmployee.id}` })
         fetchLogs()
       }
-      // Reset
-      setStep('scanning')
-      setEmployee(null)
-      setScanMode(null) // Go back to selection
+      
+      // Сбрасываем UI статусы, только если это не происходит слишком быстро, чтобы пользователь успел увидеть "Распознан..."
+      // В режиме потока лучше оставлять "Распознан", пока не переключится на другое лицо.
+      // Но здесь мы просто очищаем локальный стейт.
+      if (employee?.id === targetEmployee.id) {
+          setEmployee(null)
+      }
+      
+      // Не сбрасываем setStep('scanning'), так как мы всегда в нем
     } catch (error) {
-      toast.error("Произошла ошибка")
-    } finally {
-      setIsLoading(false)
+       // Ошибка сети или другая неожиданная ошибка — сбрасываем cooldown
+       setLastScanned(prev => {
+          const next = {...prev}
+          const scanKey = `${targetEmployee.id}-${scanMode}`
+          delete next[scanKey]
+          return next
+      })
+      toast.error("Произошла ошибка сети")
     }
   }
 

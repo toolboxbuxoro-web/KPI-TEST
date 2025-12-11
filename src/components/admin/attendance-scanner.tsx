@@ -169,6 +169,8 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
 
   // Карта cooldown для предотвращения повторных сканирований (employeeId -> timestamp)
   const [lastScanned, setLastScanned] = useState<Record<string, number>>({})
+  // Ref для немедленной блокировки (без ожидания ререндера)
+  const isProcessingRef = useRef(false)
 
   /**
    * Главный цикл обработки видеопотока (вызывается 10 раз в секунду).
@@ -182,9 +184,11 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
    * 6. При совпадении (distance < 0.45) регистрирует посещение
    * 
    * Защита от спама: повторное распознавание того же сотрудника
-   * блокируется на 30 секунд (см. lastScanned).
+   * блокируется на 60 секунд (см. lastScanned).
    */
   const processFrame = async () => {
+    // Проверяем ref ПЕРВЫМ делом для немедленной блокировки
+    if (isProcessingRef.current) return
     if (!webcamRef.current || !modelsLoaded || isLoading || step !== 'scanning') return
     
     const imageSrc = webcamRef.current.getScreenshot()
@@ -210,16 +214,19 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             const match = faceMatcher.findBestMatch(detection.descriptor)
             
             if (match.label !== 'unknown') {
-                // Cooldown check — 30 секунд между сканами одного и того же человека
+                // Cooldown check — 60 секунд между сканами одного и того же человека
                 const now = Date.now()
-                if (lastScanned[match.label] && now - lastScanned[match.label] < 30000) {
+                if (lastScanned[match.label] && now - lastScanned[match.label] < 60000) {
                    setVerificationStatus(`Готово! Подождите...`)
                    return
                 }
 
+                // НЕМЕДЛЕННО блокируем обработку через ref (не ждем ререндер)
+                isProcessingRef.current = true
+                
                 setVerificationStatus(`Распознан: ${match.label}`)
                 
-                // Сразу ставим cooldown чтобы предотвратить дублирование
+                // Ставим cooldown
                 setLastScanned(prev => ({...prev, [match.label]: now}))
                 
                 const emp = await getEmployee(match.label)
@@ -228,6 +235,9 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                     setVerificationStatus(`Распознан: ${emp.firstName} ${emp.lastName}`)
                     await processAttendance(emp)
                 }
+                
+                // Разблокируем после обработки
+                isProcessingRef.current = false
             } else {
                 setVerificationStatus('Лицо не распознано')
             }
@@ -235,6 +245,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
 
     } catch (e) {
         console.error(e)
+        isProcessingRef.current = false
     }
   }
 

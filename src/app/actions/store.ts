@@ -4,6 +4,7 @@ import prisma from "@/lib/db"
 import { redis } from "@/lib/redis"
 import { auth } from "@/auth"
 import { revalidatePath } from "next/cache"
+import bcrypt from "bcryptjs"
 
 const STORES_CACHE_KEY = "stores:all"
 const CACHE_TTL = 60 * 5 // 5 minutes
@@ -11,6 +12,8 @@ const CACHE_TTL = 60 * 5 // 5 minutes
 export interface StoreData {
   name: string
   address?: string
+  login?: string
+  password?: string
   latitude?: number | null
   longitude?: number | null
   radiusMeters?: number
@@ -23,10 +26,18 @@ export async function createStore(data: StoreData) {
   const session = await auth()
   if (!session?.user) throw new Error("Unauthorized")
 
+  // Hash password if provided
+  let passwordHash: string | null = null
+  if (data.password && data.password.length > 0) {
+    passwordHash = await bcrypt.hash(data.password, 10)
+  }
+
   const store = await prisma.store.create({
     data: {
       name: data.name,
       address: data.address || null,
+      login: data.login || null,
+      password: passwordHash,
       latitude: data.latitude ?? null,
       longitude: data.longitude ?? null,
       radiusMeters: data.radiusMeters ?? 100,
@@ -48,9 +59,20 @@ export async function updateStore(id: string, data: Partial<StoreData>) {
   const session = await auth()
   if (!session?.user) throw new Error("Unauthorized")
 
+  // Prepare update data
+  const updateData: any = { ...data }
+
+  // Hash password if provided and not empty
+  if (data.password && data.password.length > 0) {
+    updateData.password = await bcrypt.hash(data.password, 10)
+  } else {
+    // Remove password from update if not provided
+    delete updateData.password
+  }
+
   const store = await prisma.store.update({
     where: { id },
-    data
+    data: updateData
   })
 
   // Invalidate cache

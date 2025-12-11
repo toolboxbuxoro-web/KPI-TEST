@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2, QrCode as QrCodeIcon, Download } from 'lucide-react'
+import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2, QrCode as QrCodeIcon, Download, KeyRound } from 'lucide-react'
 import QRCode from "react-qr-code"
 
 // Dynamic import for Leaflet map (SSR incompatible)
@@ -54,6 +54,8 @@ import {
 interface StoreFormData {
   name: string
   address: string
+  login: string
+  password: string
   latitude: string
   longitude: string
   radiusMeters: number
@@ -78,6 +80,8 @@ export default function StoresPage() {
   const [formData, setFormData] = useState<StoreFormData>({
     name: '',
     address: '',
+    login: '',
+    password: '',
     latitude: '',
     longitude: '',
     radiusMeters: 100,
@@ -107,6 +111,8 @@ export default function StoresPage() {
     setFormData({
       name: '',
       address: '',
+      login: '',
+      password: '',
       latitude: '',
       longitude: '',
       radiusMeters: 100,
@@ -123,6 +129,8 @@ export default function StoresPage() {
     setFormData({
       name: store.name,
       address: store.address || '',
+      login: store.login || '',
+      password: '', // Don't show existing password
       latitude: store.latitude ? String(store.latitude) : '',
       longitude: store.longitude ? String(store.longitude) : '',
       radiusMeters: store.radiusMeters ?? 100,
@@ -208,7 +216,8 @@ export default function StoresPage() {
       const payload = {
         ...formData,
         latitude: getValidCoordinate(formData.latitude),
-        longitude: getValidCoordinate(formData.longitude)
+        longitude: getValidCoordinate(formData.longitude),
+        password: formData.password || undefined // Only send password if provided
       }
 
       if (editingStore) {
@@ -330,6 +339,42 @@ export default function StoresPage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
                   placeholder="ул. Примерная, 123"
                 />
+              </div>
+
+              {/* Login/Password Section for Attendance Terminal */}
+              <div className="space-y-3 p-4 rounded-xl bg-muted/30 border border-white/10">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Доступ для терминала посещаемости</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="login" className="text-xs">Логин</Label>
+                    <Input
+                      id="login"
+                      value={formData.login}
+                      onChange={(e) => setFormData(prev => ({ ...prev, login: e.target.value }))}
+                      placeholder="store1"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password" className="text-xs">
+                      {editingStore ? 'Новый пароль' : 'Пароль'}
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                      placeholder={editingStore ? '••••••' : 'Введите пароль'}
+                    />
+                  </div>
+                </div>
+                {editingStore && (
+                  <p className="text-xs text-muted-foreground">
+                    Оставьте пароль пустым, если не хотите менять
+                  </p>
+                )}
               </div>
 
               {/* Geolocation Section */}

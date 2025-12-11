@@ -1,11 +1,13 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScanFace, ClipboardList } from "lucide-react"
+import { ScanFace, ClipboardList, ArrowLeft } from "lucide-react"
 import { format } from "date-fns"
+import Link from "next/link"
 
 import { AttendanceScanner } from "@/components/admin/attendance-scanner"
 import { AttendanceTable } from "@/components/admin/attendance-table"
 import { AttendanceExportDialog } from "@/components/admin/attendance-export-dialog"
 import { getAttendanceRecords, getStoresForFilter } from "@/app/actions/attendance-admin"
+import { Button } from "@/components/ui/button"
 
 interface PageProps {
   searchParams: Promise<{
@@ -33,7 +35,14 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">Учет рабочего времени</h1>
+        <div className="flex items-center gap-4">
+          <Link href="/admin">
+            <Button variant="outline" size="icon" className="h-10 w-10">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <h1 className="text-3xl font-bold tracking-tight">Учет рабочего времени</h1>
+        </div>
         <AttendanceExportDialog />
       </div>
       

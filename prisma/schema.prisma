@@ -19,6 +19,8 @@ model Store {
   id            String             @id @default(cuid())
   name          String
   address       String?
+  login         String?            @unique // Login for store attendance terminal
+  password      String?            // Hashed password for store attendance
   latitude      Float?
   longitude     Float?
   radiusMeters  Int                @default(100)
@@ -32,6 +34,7 @@ model Store {
 
   @@index([name])
   @@index([isActive])
+  @@index([login])
 }
 
 model Employee {

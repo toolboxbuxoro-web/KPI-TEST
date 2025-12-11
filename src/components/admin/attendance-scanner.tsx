@@ -218,9 +218,10 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                 if (isProcessingRef.current) return
                 isProcessingRef.current = true
 
-                // Cooldown check — 60 секунд между сканами одного и того же человека
+                // Cooldown check — 60 секунд между сканами одного и того же человека В ЭТОМ РЕЖИМЕ
+                const scanKey = `${match.label}-${scanMode}`
                 const now = Date.now()
-                if (lastScanned[match.label] && now - lastScanned[match.label] < 60000) {
+                if (lastScanned[scanKey] && now - lastScanned[scanKey] < 60000) {
                    setVerificationStatus(`Готово! Подождите...`)
                    isProcessingRef.current = false
                    return
@@ -228,8 +229,8 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                 
                 setVerificationStatus(`Распознан: ${match.label}`)
                 
-                // Ставим cooldown
-                setLastScanned(prev => ({...prev, [match.label]: now}))
+                // Ставим cooldown для конкретного человека и режима
+                setLastScanned(prev => ({...prev, [scanKey]: now}))
                 
                 const emp = await getEmployee(match.label)
                 if (emp && !('error' in emp)) {

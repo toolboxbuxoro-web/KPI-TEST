@@ -214,15 +214,17 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             const match = faceMatcher.findBestMatch(detection.descriptor)
             
             if (match.label !== 'unknown') {
+                // НЕМЕДЛЕННО блокируем обработку через ref ДО любых проверок
+                if (isProcessingRef.current) return
+                isProcessingRef.current = true
+
                 // Cooldown check — 60 секунд между сканами одного и того же человека
                 const now = Date.now()
                 if (lastScanned[match.label] && now - lastScanned[match.label] < 60000) {
                    setVerificationStatus(`Готово! Подождите...`)
+                   isProcessingRef.current = false
                    return
                 }
-
-                // НЕМЕДЛЕННО блокируем обработку через ref (не ждем ререндер)
-                isProcessingRef.current = true
                 
                 setVerificationStatus(`Распознан: ${match.label}`)
                 
@@ -267,9 +269,9 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
       const result = await registerAttendance(targetEmployee.id, scanMode, selectedStoreId || undefined)
       
       if (result.error) {
-        toast.error(result.error)
+        toast.error(result.error, { id: `attendance-error-${targetEmployee.id}` })
       } else {
-        toast.success(result.message)
+        toast.success(result.message, { id: `attendance-success-${targetEmployee.id}` })
         fetchLogs()
       }
       // Reset

@@ -31,10 +31,11 @@ export async function getAllFaceDescriptors(): Promise<FaceDescriptorData[]> {
     console.error("Redis cache error:", error)
   }
 
-  // Fetch from database - get all employees with photos and consent
+  // Fetch from database - get all ACTIVE employees with photos and consent
   const employees = await prisma.employee.findMany({
     where: {
-      consentSignedAt: { not: null }
+      consentSignedAt: { not: null },
+      isActive: true
     },
     select: {
       id: true,

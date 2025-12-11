@@ -299,3 +299,48 @@ export async function getAllEmployeesWithPhotos() {
     return { error: "Failed to fetch employees" }
   }
 }
+
+/**
+ * Toggle employee active status
+ * When deactivated, employee will not appear in face recognition
+ */
+export async function toggleEmployeeActive(employeeId: string) {
+  const session = await auth()
+  if (!session?.user) throw new Error("Unauthorized")
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { isActive: true, firstName: true, lastName: true }
+  })
+
+  if (!employee) {
+    return { error: "Сотрудник не найден" }
+  }
+
+  const newStatus = !employee.isActive
+
+  await prisma.employee.update({
+    where: { id: employeeId },
+    data: { isActive: newStatus }
+  })
+
+  // Invalidate face descriptors cache to update recognition
+  try {
+    const { redis } = await import("@/lib/redis")
+    await redis.del("face:descriptors:all")
+  } catch (error) {
+    console.error("Redis cache invalidation error:", error)
+  }
+
+  revalidatePath("/admin/employees")
+  revalidatePath("/admin/attendance")
+
+  return { 
+    success: true, 
+    isActive: newStatus,
+    message: newStatus 
+      ? `${employee.firstName} ${employee.lastName} активирован` 
+      : `${employee.firstName} ${employee.lastName} деактивирован`
+  }
+}
+

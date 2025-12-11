@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from "react"
-import { deleteEmployee } from "@/app/actions/employee"
+import { deleteEmployee, toggleEmployeeActive } from "@/app/actions/employee"
 import { Button } from "@/components/ui/button"
 import { EmployeeDialog } from "./employee-dialog"
-import { Trash2, Pencil, MoreHorizontal, Copy } from "lucide-react"
+import { Trash2, Pencil, MoreHorizontal, Copy, UserX, UserCheck } from "lucide-react"
 import { useRouter } from "next/navigation"
 import {
   AlertDialog,
@@ -77,6 +77,21 @@ export function EmployeeActions({ employee }: EmployeeActionsProps) {
     toast.success("Ссылка скопирована в буфер обмена")
   }
 
+  const handleToggleActive = async () => {
+    try {
+      const result = await toggleEmployeeActive(employee.id)
+      if (result?.error) {
+        toast.error(result.error)
+      } else {
+        toast.success(result.message)
+        router.refresh()
+      }
+    } catch (error) {
+      toast.error("Ошибка изменения статуса")
+      console.error("Toggle active error:", error instanceof Error ? error.message : String(error))
+    }
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -102,6 +117,23 @@ export function EmployeeActions({ employee }: EmployeeActionsProps) {
               </DropdownMenuItem>
             }
           />
+          <DropdownMenuItem 
+            onClick={handleToggleActive}
+            className={employee.isActive !== false ? "text-amber-600 focus:text-amber-600" : "text-green-600 focus:text-green-600"}
+          >
+            {employee.isActive !== false ? (
+              <>
+                <UserX className="mr-2 h-4 w-4" />
+                Деактивировать
+              </>
+            ) : (
+              <>
+                <UserCheck className="mr-2 h-4 w-4" />
+                Активировать
+              </>
+            )}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem 
             onClick={() => setDeleteDialogOpen(true)}
             className="text-red-600 focus:text-red-600"

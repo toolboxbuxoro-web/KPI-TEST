@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { EmployeeDialog } from "@/components/admin/employee-dialog"
 import { EmployeeActions } from "@/components/admin/employee-actions"
 import { EmployeeSearch } from "@/components/admin/employee-search"
-import { ScanFace, AlertCircle, ShieldCheck, Store, User } from "lucide-react"
+import { ScanFace, AlertCircle, ShieldCheck, Store, User, UserX, CheckCircle2 } from "lucide-react"
 
 // Лейблы ролей
 const roleLabels: Record<string, { label: string; icon: React.ReactNode; variant: "default" | "secondary" | "destructive" | "outline" }> = {
@@ -65,6 +65,7 @@ export default async function EmployeesPage({
             <TableHeader>
               <TableRow className="hover:bg-muted/50 border-white/10">
                 <TableHead>Сотрудник</TableHead>
+                <TableHead>Статус</TableHead>
                 <TableHead>Роль</TableHead>
                 <TableHead>Магазин</TableHead>
                 <TableHead>Биометрия</TableHead>
@@ -77,7 +78,7 @@ export default async function EmployeesPage({
                 const lastSession = employee.sessions[0]
                 const hasBiometrics = !!employee.faceDescriptor && !!employee.consentSignedAt
                 return (
-                  <TableRow key={employee.id} className="hover:bg-muted/50 border-white/10">
+                  <TableRow key={employee.id} className={`hover:bg-muted/50 border-white/10 ${employee.isActive === false ? 'opacity-50' : ''}`}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border-2 border-primary/10">
@@ -95,6 +96,19 @@ export default async function EmployeesPage({
                           </div>
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {employee.isActive !== false ? (
+                        <Badge variant="outline" className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/30 gap-1 backdrop-blur-sm">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Активен
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 gap-1 backdrop-blur-sm">
+                          <UserX className="h-3 w-3" />
+                          Деактивирован
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       {(() => {
@@ -146,7 +160,7 @@ export default async function EmployeesPage({
               })}
               {employees.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground h-24">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground h-24">
                     Сотрудники не найдены
                   </TableCell>
                 </TableRow>
@@ -158,4 +172,3 @@ export default async function EmployeesPage({
     </div>
   )
 }
-

@@ -176,13 +176,13 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
    * Процесс работы:
    * 1. Захватывает скриншот с веб-камеры (JPEG)
    * 2. Передает изображение в face-api.js для детектирования лица
-   * 3. Проверяет качество — лицо должно быть >= 150px в ширину
+   * 3. Проверяет качество — лицо должно быть >= 100px в ширину
    * 4. Извлекает 128-мерный дескриптор лица
    * 5. Сравнивает с базой данных через FaceMatcher.findBestMatch()
    * 6. При совпадении (distance < 0.45) регистрирует посещение
    * 
    * Защита от спама: повторное распознавание того же сотрудника
-   * блокируется на 60 секунд (см. lastScanned).
+   * блокируется на 30 секунд (см. lastScanned).
    */
   const processFrame = async () => {
     if (!webcamRef.current || !modelsLoaded || isLoading || step !== 'scanning') return
@@ -199,10 +199,10 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             return
         }
 
-         // Check Quality
+         // Проверка качества — минимальный размер лица для точного распознавания
         const box = detection.detection.box
-        if (box.width < 150) {
-            setVerificationStatus('Подойдите ближе')
+        if (box.width < 100) {
+            setVerificationStatus('Смотрите в камеру')
             return
         }
 
@@ -210,10 +210,10 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             const match = faceMatcher.findBestMatch(detection.descriptor)
             
             if (match.label !== 'unknown') {
-                // Cooldown check
+                // Cooldown check — 30 секунд между сканами одного и того же человека
                 const now = Date.now()
-                if (lastScanned[match.label] && now - lastScanned[match.label] < 60000) {
-                   setVerificationStatus(`Уже отмечено: подождите...`)
+                if (lastScanned[match.label] && now - lastScanned[match.label] < 30000) {
+                   setVerificationStatus(`Готово! Подождите...`)
                    return
                 }
 

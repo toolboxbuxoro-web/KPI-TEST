@@ -304,7 +304,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   }
 
   return (
-    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8 min-h-[calc(100vh-8rem)] lg:h-[calc(100vh-10rem)]">
+    <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8 h-full min-h-[70vh]">
       {/* Left Panel: Scanner — занимает минимум 60vh на мобильных */}
       <Card className="lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float min-h-[60vh] lg:min-h-0">
         <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10 flex flex-row items-center justify-between h-auto min-h-[5rem] px-6">

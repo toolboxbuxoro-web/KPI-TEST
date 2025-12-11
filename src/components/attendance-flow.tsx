@@ -81,10 +81,10 @@ export function AttendanceFlow() {
     window.location.reload()
   }
 
-  // Kiosk mode - show scanner directly
+  // Kiosk mode - show scanner directly (full screen)
   if (storeId) {
     return (
-      <div className="w-full h-full">
+      <div className="w-full flex-1">
          <AttendanceScanner preselectedStoreId={storeId} onResetStore={handleReset} />
       </div>
     )
@@ -103,41 +103,44 @@ export function AttendanceFlow() {
             <CardDescription>Введите логин и пароль магазина</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="store-login">Логин магазина</Label>
-              <Input
-                id="store-login"
-                placeholder="Введите логин..."
-                value={login}
-                onChange={(e) => setLogin(e.target.value)}
-                className="neo-input"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="store-password">Пароль</Label>
-              <Input
-                id="store-password"
-                type="password"
-                placeholder="Введите пароль..."
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                className="neo-input"
-              />
-            </div>
-            <Button 
-              className="w-full neo-gradient" 
-              size="lg"
-              onClick={handleLogin}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <KeyRound className="mr-2 h-5 w-5" />
-              )}
-              Войти в терминал
-            </Button>
+            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="store-login">Логин магазина</Label>
+                <Input
+                  id="store-login"
+                  placeholder="Введите логин..."
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  className="neo-input"
+                  autoComplete="username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="store-password">Пароль</Label>
+                <Input
+                  id="store-password"
+                  type="password"
+                  placeholder="Введите пароль..."
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="neo-input"
+                  autoComplete="current-password"
+                />
+              </div>
+              <Button 
+                type="submit"
+                className="w-full neo-gradient" 
+                size="lg"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <KeyRound className="mr-2 h-5 w-5" />
+                )}
+                Войти в терминал
+              </Button>
+            </form>
           </CardContent>
         </Card>
         <Button variant="outline" onClick={() => setIsLoggingIn(false)} className="rounded-full gap-2">
@@ -163,36 +166,6 @@ export function AttendanceFlow() {
 
        {/* Action Cards Grid */}
        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl">
-         
-         {/* Attendance Card - Primary Action */}
-         <Card className="group relative overflow-hidden neo-card hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1 cursor-pointer border-2 border-transparent hover:border-primary/30"
-               onClick={() => window.location.href = '/check'}>
-           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-           <CardHeader className="pb-2">
-             <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-               <Clock className="h-6 w-6 text-primary" />
-             </div>
-             <CardTitle className="text-xl flex items-center gap-2">
-               Посещаемость
-               <ArrowRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
-             </CardTitle>
-             <CardDescription>
-               Отметить вход или выход
-             </CardDescription>
-           </CardHeader>
-           <CardContent className="pt-0">
-             <div className="flex flex-wrap gap-2">
-               <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
-                 <KeyRound className="h-3 w-3" />
-                 <span>По логину</span>
-               </div>
-               <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
-                 <ScanLine className="h-3 w-3" />
-                 <span>По QR-коду</span>
-               </div>
-             </div>
-           </CardContent>
-         </Card>
 
          {/* Terminal/Kiosk Card */}
          <Card className="group relative overflow-hidden neo-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-2 border-transparent hover:border-orange-500/30"
@@ -203,22 +176,26 @@ export function AttendanceFlow() {
                <Building2 className="h-6 w-6 text-orange-500" />
              </div>
              <CardTitle className="text-xl flex items-center gap-2">
-               Режим терминала
+               Вход в терминал
                <ArrowRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-orange-500" />
              </CardTitle>
              <CardDescription>
-               Вход по логину магазина
+               Вход по QR-коду или логину магазина
              </CardDescription>
            </CardHeader>
            <CardContent className="pt-0">
              <div className="flex flex-wrap gap-2">
                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
-                 <Fingerprint className="h-3 w-3" />
-                 <span>Face ID</span>
+                 <ScanLine className="h-3 w-3" />
+                 <span>По QR-коду</span>
                </div>
                <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
                  <KeyRound className="h-3 w-3" />
                  <span>Логин магазина</span>
+               </div>
+               <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
+                 <Fingerprint className="h-3 w-3" />
+                 <span>Face ID</span>
                </div>
              </div>
            </CardContent>

@@ -7,7 +7,7 @@ export default async function Home() {
   const session = await auth()
 
   return (
-    <div className="min-h-screen bg-background neo-pattern flex flex-col">
+    <div className="min-h-screen bg-background neo-pattern flex flex-col pt-20">
        {/* Use SessionProvider here for client components if needed, though RootLayout usually handles it. 
            But passing session to provider inside might be better if RootProviders doesn't wrap session.
            Actually Providers usually wraps SessionProvider. 
@@ -15,11 +15,11 @@ export default async function Home() {
        */}
       <HomeHeader user={session?.user} />
       
-      <main className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      <main className="flex-1 flex flex-col relative overflow-hidden">
         {/* Background decorative elements */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] opacity-20 pointer-events-none" />
         
-        <div className="max-w-4xl w-full relative z-10">
+        <div className="w-full flex-1 relative z-10 flex flex-col items-center justify-center px-4 py-4">
            <AttendanceFlow />
         </div>
       </main>

@@ -168,7 +168,7 @@ export function AttendanceFlow() {
        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-2xl">
 
          {/* Terminal/Kiosk Card */}
-         <Card className="group relative overflow-hidden neo-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-2 border-transparent hover:border-orange-500/30"
+         <Card className="md:col-span-2 group relative overflow-hidden neo-card hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-2 border-transparent hover:border-orange-500/30"
                onClick={() => setIsLoggingIn(true)}>
            <div className="absolute inset-0 bg-gradient-to-br from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
            <CardHeader className="pb-2">

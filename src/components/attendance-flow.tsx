@@ -93,17 +93,17 @@ export function AttendanceFlow() {
   // Store Login Form
   if (isLoggingIn) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-6 animate-in fade-in slide-in-from-bottom-5">
-        <Card className="w-full max-w-md neo-card neo-float">
-          <CardHeader className="text-center">
-            <div className="h-16 w-16 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto mb-4">
-              <Building2 className="h-8 w-8 text-orange-500" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8 animate-in fade-in slide-in-from-bottom-5 px-4 py-8">
+        <Card className="w-full max-w-md neo-card neo-float p-2">
+          <CardHeader className="text-center pb-6">
+            <div className="h-20 w-20 rounded-2xl bg-orange-500/10 flex items-center justify-center mx-auto mb-6">
+              <Building2 className="h-10 w-10 text-orange-500" />
             </div>
-            <CardTitle className="text-2xl">Вход в терминал</CardTitle>
-            <CardDescription>Введите логин и пароль магазина</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl">Вход в терминал</CardTitle>
+            <CardDescription className="text-base mt-2">Введите логин и пароль магазина</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-4">
+          <CardContent className="space-y-6">
+            <form onSubmit={(e) => { e.preventDefault(); handleLogin(); }} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="store-login">Логин магазина</Label>
                 <Input
@@ -111,7 +111,7 @@ export function AttendanceFlow() {
                   placeholder="Введите логин..."
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
-                  className="neo-input"
+                  className="neo-input h-12"
                   autoComplete="username"
                 />
               </div>
@@ -123,13 +123,13 @@ export function AttendanceFlow() {
                   placeholder="Введите пароль..."
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="neo-input"
+                  className="neo-input h-12"
                   autoComplete="current-password"
                 />
               </div>
               <Button 
                 type="submit"
-                className="w-full neo-gradient" 
+                className="w-full neo-gradient h-12 text-base mt-4" 
                 size="lg"
                 disabled={isLoading}
               >

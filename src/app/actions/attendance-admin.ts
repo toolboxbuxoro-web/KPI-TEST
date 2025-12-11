@@ -169,3 +169,87 @@ export async function getStoresForFilter() {
 
   return stores
 }
+
+// Aggregated attendance statistics
+export interface AttendanceStats {
+  totalRecords: number
+  uniqueEmployees: number
+  avgWorkedHours: number
+  lateArrivals: number
+  lateArrivalRate: number
+  totalWorkedHours: number
+  recordsWithCheckout: number
+}
+
+// Get aggregated statistics for a date range
+export async function getAttendanceStats(
+  fromDate: Date,
+  toDate: Date,
+  storeId?: string
+): Promise<AttendanceStats> {
+  const startOfRange = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate())
+  const endOfRange = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate() + 1)
+
+  const records = await prisma.attendanceRecord.findMany({
+    where: {
+      checkIn: {
+        gte: startOfRange,
+        lt: endOfRange
+      },
+      ...(storeId && { storeId })
+    },
+    include: {
+      store: {
+        select: {
+          workStartHour: true
+        }
+      }
+    }
+  })
+
+  const totalRecords = records.length
+  const uniqueEmployees = new Set(records.map(r => r.employeeId)).size
+  
+  // Calculate worked hours for records with checkout
+  const recordsWithCheckout = records.filter(r => r.checkOut !== null)
+  let totalWorkedMinutes = 0
+  
+  recordsWithCheckout.forEach(record => {
+    if (record.checkOut) {
+      const diffMs = record.checkOut.getTime() - record.checkIn.getTime()
+      totalWorkedMinutes += diffMs / (1000 * 60)
+    }
+  })
+  
+  const totalWorkedHours = totalWorkedMinutes / 60
+  const avgWorkedHours = recordsWithCheckout.length > 0 
+    ? totalWorkedHours / recordsWithCheckout.length 
+    : 0
+
+  // Calculate late arrivals (check-in after store's work start hour)
+  let lateArrivals = 0
+  records.forEach(record => {
+    const workStart = record.store?.workStartHour ?? 9 // Default 9:00
+    const checkInHour = record.checkIn.getHours()
+    const checkInMinutes = record.checkIn.getMinutes()
+    
+    // Late if after work start hour (e.g., 9:15 is late if work starts at 9:00)
+    if (checkInHour > workStart || (checkInHour === workStart && checkInMinutes > 15)) {
+      lateArrivals++
+    }
+  })
+
+  const lateArrivalRate = totalRecords > 0 
+    ? (lateArrivals / totalRecords) * 100 
+    : 0
+
+  return {
+    totalRecords,
+    uniqueEmployees,
+    avgWorkedHours: Math.round(avgWorkedHours * 10) / 10,
+    lateArrivals,
+    lateArrivalRate: Math.round(lateArrivalRate * 10) / 10,
+    totalWorkedHours: Math.round(totalWorkedHours * 10) / 10,
+    recordsWithCheckout: recordsWithCheckout.length
+  }
+}

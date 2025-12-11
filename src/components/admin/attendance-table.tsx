@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Calendar, Edit2, Loader2, CheckCircle2, XCircle, MapPin } from 'lucide-react'
+import { Calendar, Edit2, Loader2, CheckCircle2, XCircle, MapPin, Users, Clock, AlertTriangle, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
@@ -17,7 +17,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { AttendanceEditDialog } from './attendance-edit-dialog'
 import { AuditHistoryPopover } from './audit-history-popover'
 import { AttendanceFilters } from './attendance-filters'
-import { type AttendanceRecordWithEmployee } from '@/app/actions/attendance-admin'
+import { type AttendanceRecordWithEmployee, type AttendanceStats } from '@/app/actions/attendance-admin'
 
 interface StoreOption {
   id: string
@@ -30,6 +30,7 @@ interface AttendanceTableProps {
   fromDate: string
   toDate: string
   storeId?: string
+  stats?: AttendanceStats
 }
 
 export function AttendanceTable({
@@ -37,7 +38,8 @@ export function AttendanceTable({
   stores,
   fromDate,
   toDate,
-  storeId
+  storeId,
+  stats
 }: AttendanceTableProps) {
   const router = useRouter()
   const [records, setRecords] = useState(initialRecords)
@@ -71,6 +73,76 @@ export function AttendanceTable({
 
   return (
     <>
+      {/* Statistics Cards */}
+      {stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Card className="neo-card neo-float">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Всего записей</p>
+                  <p className="text-2xl font-bold">{stats.totalRecords}</p>
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="neo-card neo-float">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Сотрудников</p>
+                  <p className="text-2xl font-bold">{stats.uniqueEmployees}</p>
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                  <Users className="h-6 w-6 text-blue-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="neo-card neo-float">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Средн. часов</p>
+                  <p className="text-2xl font-bold">{stats.avgWorkedHours}ч</p>
+                </div>
+                <div className="h-12 w-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-green-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="neo-card neo-float">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Опозданий</p>
+                  <p className="text-2xl font-bold">
+                    {stats.lateArrivals}
+                    <span className="text-sm font-normal text-muted-foreground ml-1">
+                      ({stats.lateArrivalRate}%)
+                    </span>
+                  </p>
+                </div>
+                <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${
+                  stats.lateArrivalRate > 20 ? 'bg-red-500/10' : 'bg-orange-500/10'
+                }`}>
+                  <AlertTriangle className={`h-6 w-6 ${
+                    stats.lateArrivalRate > 20 ? 'text-red-500' : 'text-orange-500'
+                  }`} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <Card className="neo-card neo-float">
         <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm">
           <div className="flex flex-col gap-4">

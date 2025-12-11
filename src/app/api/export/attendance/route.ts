@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
         store: {
           select: {
             name: true,
+            workStartHour: true,
           },
         },
       },
@@ -74,6 +75,7 @@ export async function GET(request: NextRequest) {
       "Время выхода",
       "Отработано часов",
       "В зоне",
+      "Статус", // New: late status
     ]
 
     // Format helpers
@@ -100,8 +102,24 @@ export async function GET(request: NextRequest) {
       return hours.toFixed(2).replace(".", ",")
     }
 
-    // Build rows
+    // Build rows with late status
+    let totalHours = 0
+    let lateCount = 0
     const rows = records.map((record) => {
+      const workStart = record.store?.workStartHour ?? 9
+      const checkInHour = record.checkIn.getHours()
+      const checkInMinutes = record.checkIn.getMinutes()
+      
+      // Late if after work start + 15 min grace
+      const isLate = checkInHour > workStart || (checkInHour === workStart && checkInMinutes > 15)
+      if (isLate) lateCount++
+      
+      // Sum hours
+      if (record.checkOut) {
+        const diffMs = record.checkOut.getTime() - record.checkIn.getTime()
+        totalHours += diffMs / (1000 * 60 * 60)
+      }
+      
       return [
         formatDate(record.checkIn),
         `${record.employee.firstName} ${record.employee.lastName}`,
@@ -110,13 +128,28 @@ export async function GET(request: NextRequest) {
         formatTime(record.checkOut),
         calculateHours(record.checkIn, record.checkOut),
         record.inZone ? "да" : "нет",
+        isLate ? "опоздание" : "вовремя",
       ]
     })
+
+    // Add summary row
+    const summaryRow = [
+      "ИТОГО",
+      `Записей: ${records.length}`,
+      "",
+      "",
+      "",
+      totalHours.toFixed(2).replace(".", ","),
+      "",
+      `Опозданий: ${lateCount}`,
+    ]
 
     // Generate CSV with semicolon delimiter for Excel
     const csvContent = [
       headers.join(";"),
       ...rows.map((row) => row.join(";")),
+      "", // Empty row before summary
+      summaryRow.join(";"),
     ].join("\n")
 
     // Add BOM for Excel UTF-8 compatibility

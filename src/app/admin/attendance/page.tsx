@@ -6,7 +6,7 @@ import Link from "next/link"
 import { AttendanceScanner } from "@/components/admin/attendance-scanner"
 import { AttendanceTable } from "@/components/admin/attendance-table"
 import { AttendanceExportDialog } from "@/components/admin/attendance-export-dialog"
-import { getAttendanceRecords, getStoresForFilter } from "@/app/actions/attendance-admin"
+import { getAttendanceRecords, getStoresForFilter, getAttendanceStats } from "@/app/actions/attendance-admin"
 import { Button } from "@/components/ui/button"
 
 interface PageProps {
@@ -26,10 +26,11 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   const toDate = params.to || today
   const storeId = params.storeId
 
-  // Fetch data on server
-  const [records, stores] = await Promise.all([
+  // Fetch data on server (including stats)
+  const [records, stores, stats] = await Promise.all([
     getAttendanceRecords(new Date(fromDate), new Date(toDate), storeId),
-    getStoresForFilter()
+    getStoresForFilter(),
+    getAttendanceStats(new Date(fromDate), new Date(toDate), storeId)
   ])
 
   return (
@@ -69,6 +70,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
             fromDate={fromDate}
             toDate={toDate}
             storeId={storeId}
+            stats={stats}
           />
         </TabsContent>
       </Tabs>

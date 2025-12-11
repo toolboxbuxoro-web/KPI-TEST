@@ -37,6 +37,7 @@ model Store {
 model Employee {
   id                  String                @id @default(cuid())
   employeeCode        String?               @unique // For PWA check-in
+  login               String?               @unique // Login for attendance auth
   
   // Расширенное ФИО
   firstName           String

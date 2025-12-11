@@ -17,6 +17,7 @@ export interface EmployeeCreateData {
   middleName?: string
   phone?: string
   email?: string
+  login?: string
   password?: string
   birthDate?: string // ISO date
   position: string
@@ -48,6 +49,7 @@ export async function createEmployee(data: EmployeeCreateData) {
     middleName: validated.data.middleName || null,
     phone: validated.data.phone || null,
     email: validated.data.email || null,
+    login: validated.data.login || null,
     password: passwordHash,
     birthDate: validated.data.birthDate ? new Date(validated.data.birthDate) : null,
     position: validated.data.position,
@@ -80,6 +82,7 @@ export async function updateEmployee(id: string, data: Partial<EmployeeCreateDat
   if (validated.data.middleName !== undefined) updateData.middleName = validated.data.middleName || null
   if (validated.data.phone !== undefined) updateData.phone = validated.data.phone || null
   if (validated.data.email !== undefined) updateData.email = validated.data.email || null
+  if (validated.data.login !== undefined) updateData.login = validated.data.login || null
   if (validated.data.birthDate !== undefined) updateData.birthDate = validated.data.birthDate ? new Date(validated.data.birthDate) : null
   if (validated.data.position !== undefined) updateData.position = validated.data.position
   if (validated.data.role !== undefined) updateData.role = validated.data.role as Role

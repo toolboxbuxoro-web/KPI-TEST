@@ -13,7 +13,9 @@ import {
   CheckCircle, 
   XCircle,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  QrCode,
+  Key
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -39,8 +41,13 @@ interface EmployeeStatus {
   }
 }
 
+type AuthMode = 'code' | 'login'
+
 export default function CheckPage() {
+  const [authMode, setAuthMode] = useState<AuthMode>('code')
   const [employeeCode, setEmployeeCode] = useState('')
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
   const [status, setStatus] = useState<EmployeeStatus | null>(null)
   const [loading, setLoading] = useState(false)
   const [checking, setChecking] = useState(false)
@@ -86,14 +93,22 @@ export default function CheckPage() {
 
   // Check employee status
   const checkStatus = async () => {
-    if (!employeeCode.trim()) {
+    if (authMode === 'code' && !employeeCode.trim()) {
       toast.error('Введите код сотрудника')
+      return
+    }
+    if (authMode === 'login' && (!login.trim() || !password.trim())) {
+      toast.error('Введите логин и пароль')
       return
     }
 
     setLoading(true)
     try {
-      const res = await fetch(`/api/attendance/check?employee_code=${encodeURIComponent(employeeCode)}`)
+      const params = authMode === 'code' 
+        ? `employee_code=${encodeURIComponent(employeeCode)}`
+        : `login=${encodeURIComponent(login)}&password=${encodeURIComponent(password)}`
+      
+      const res = await fetch(`/api/attendance/check?${params}`)
       const data = await res.json()
       
       if (!res.ok) {
@@ -116,15 +131,25 @@ export default function CheckPage() {
 
     setChecking(true)
     try {
+      const body = authMode === 'code' 
+        ? {
+            employee_code: employeeCode,
+            type,
+            geo: geoPosition ? { lat: geoPosition.lat, lng: geoPosition.lng } : undefined,
+            device: 'mobile'
+          }
+        : {
+            login,
+            password,
+            type,
+            geo: geoPosition ? { lat: geoPosition.lat, lng: geoPosition.lng } : undefined,
+            device: 'mobile'
+          }
+
       const res = await fetch('/api/attendance/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employee_code: employeeCode,
-          type,
-          geo: geoPosition ? { lat: geoPosition.lat, lng: geoPosition.lng } : undefined,
-          device: 'mobile'
-        })
+        body: JSON.stringify(body)
       })
 
       const data = await res.json()
@@ -150,6 +175,13 @@ export default function CheckPage() {
       hour: '2-digit', 
       minute: '2-digit' 
     })
+  }
+
+  const resetForm = () => {
+    setStatus(null)
+    setEmployeeCode('')
+    setLogin('')
+    setPassword('')
   }
 
   return (
@@ -180,8 +212,30 @@ export default function CheckPage() {
             </Button>
           </div>
 
-          {/* Employee Code Input */}
+          {/* Auth Mode Toggle */}
           {!status && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant={authMode === 'code' ? 'default' : 'outline'}
+                className={authMode === 'code' ? 'neo-gradient' : ''}
+                onClick={() => setAuthMode('code')}
+              >
+                <QrCode className="mr-2 h-4 w-4" />
+                По коду
+              </Button>
+              <Button
+                variant={authMode === 'login' ? 'default' : 'outline'}
+                className={authMode === 'login' ? 'neo-gradient' : ''}
+                onClick={() => setAuthMode('login')}
+              >
+                <Key className="mr-2 h-4 w-4" />
+                По логину
+              </Button>
+            </div>
+          )}
+
+          {/* Employee Code Input */}
+          {!status && authMode === 'code' && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="code">Код сотрудника</Label>
@@ -201,6 +255,42 @@ export default function CheckPage() {
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Проверить
+              </Button>
+            </div>
+          )}
+
+          {/* Login/Password Input */}
+          {!status && authMode === 'login' && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="login">Логин</Label>
+                <Input
+                  id="login"
+                  placeholder="Введите логин..."
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  className="neo-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Пароль</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Введите пароль..."
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && checkStatus()}
+                  className="neo-input"
+                />
+              </div>
+              <Button 
+                className="w-full neo-gradient" 
+                onClick={checkStatus}
+                disabled={loading}
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Войти
               </Button>
             </div>
           )}
@@ -298,10 +388,7 @@ export default function CheckPage() {
               <Button
                 variant="ghost"
                 className="w-full"
-                onClick={() => {
-                  setStatus(null)
-                  setEmployeeCode('')
-                }}
+                onClick={resetForm}
               >
                 Другой сотрудник
               </Button>

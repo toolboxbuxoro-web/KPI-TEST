@@ -36,6 +36,7 @@ export const employeeSchema = z.object({
   // Контакты
   phone: z.string().optional(),
   email: z.string().email("Некорректный email").optional().or(z.literal("")),
+  login: z.string().min(3, "Логин должен быть минимум 3 символа").optional().or(z.literal("")),
   password: z.string().min(6, "Пароль должен быть минимум 6 символов").optional().or(z.literal("")),
   
   // Персональные данные

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server"
 import prisma from "@/lib/db"
 import { isWithinZone, findNearestStore } from "@/lib/geo"
+import bcrypt from "bcryptjs"
 
 interface CheckRequest {
-  employee_code: string
+  employee_code?: string
+  login?: string
+  password?: string
   type: "in" | "out"
   timestamp?: string
   geo?: { lat: number; lng: number }
@@ -16,9 +19,17 @@ export async function POST(request: NextRequest) {
     const body: CheckRequest = await request.json()
     
     // Validate required fields
-    if (!body.employee_code || !body.type) {
+    if (!body.type) {
       return NextResponse.json(
-        { error: "employee_code and type are required" },
+        { error: "type is required" },
+        { status: 400 }
+      )
+    }
+
+    // Either employee_code OR login+password is required
+    if (!body.employee_code && (!body.login || !body.password)) {
+      return NextResponse.json(
+        { error: "employee_code or login+password is required" },
         { status: 400 }
       )
     }
@@ -30,21 +41,61 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find employee by code
-    const employee = await prisma.employee.findFirst({
-      where: {
-        OR: [
-          { employeeCode: body.employee_code },
-          { id: body.employee_code }
-        ]
-      }
-    })
+    let employee = null
 
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 404 }
-      )
+    // Auth by login + password
+    if (body.login && body.password) {
+      const foundEmployee = await prisma.employee.findUnique({
+        where: { login: body.login }
+      })
+
+      if (!foundEmployee) {
+        return NextResponse.json(
+          { error: "Неверный логин или пароль" },
+          { status: 401 }
+        )
+      }
+
+      if (!foundEmployee.password) {
+        return NextResponse.json(
+          { error: "У сотрудника не установлен пароль" },
+          { status: 401 }
+        )
+      }
+
+      const passwordMatch = await bcrypt.compare(body.password, foundEmployee.password)
+      if (!passwordMatch) {
+        return NextResponse.json(
+          { error: "Неверный логин или пароль" },
+          { status: 401 }
+        )
+      }
+
+      if (!foundEmployee.isActive) {
+        return NextResponse.json(
+          { error: "Сотрудник неактивен" },
+          { status: 403 }
+        )
+      }
+
+      employee = foundEmployee
+    } else {
+      // Auth by employee_code or id
+      employee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { employeeCode: body.employee_code },
+            { id: body.employee_code }
+          ]
+        }
+      })
+
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Employee not found" },
+          { status: 404 }
+        )
+      }
     }
 
     // Get all active stores with geo coordinates
@@ -181,28 +232,72 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const employeeCode = searchParams.get("employee_code")
+    const login = searchParams.get("login")
+    const password = searchParams.get("password")
 
-    if (!employeeCode) {
+    // Either employee_code OR login+password is required
+    if (!employeeCode && (!login || !password)) {
       return NextResponse.json(
-        { error: "employee_code is required" },
+        { error: "employee_code or login+password is required" },
         { status: 400 }
       )
     }
 
-    const employee = await prisma.employee.findFirst({
-      where: {
-        OR: [
-          { employeeCode: employeeCode },
-          { id: employeeCode }
-        ]
-      }
-    })
+    let employee = null
 
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 404 }
-      )
+    // Auth by login + password
+    if (login && password) {
+      const foundEmployee = await prisma.employee.findUnique({
+        where: { login: login }
+      })
+
+      if (!foundEmployee) {
+        return NextResponse.json(
+          { error: "Неверный логин или пароль" },
+          { status: 401 }
+        )
+      }
+
+      if (!foundEmployee.password) {
+        return NextResponse.json(
+          { error: "У сотрудника не установлен пароль" },
+          { status: 401 }
+        )
+      }
+
+      const passwordMatch = await bcrypt.compare(password, foundEmployee.password)
+      if (!passwordMatch) {
+        return NextResponse.json(
+          { error: "Неверный логин или пароль" },
+          { status: 401 }
+        )
+      }
+
+      if (!foundEmployee.isActive) {
+        return NextResponse.json(
+          { error: "Сотрудник неактивен" },
+          { status: 403 }
+        )
+      }
+
+      employee = foundEmployee
+    } else {
+      // Auth by employee_code or id
+      employee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { employeeCode: employeeCode! },
+            { id: employeeCode! }
+          ]
+        }
+      })
+
+      if (!employee) {
+        return NextResponse.json(
+          { error: "Employee not found" },
+          { status: 404 }
+        )
+      }
     }
 
     const today = new Date()

@@ -53,6 +53,7 @@ interface EmployeeDialogProps {
     role?: string
     storeId?: string | null
     isActive?: boolean
+    login?: string | null
     imageUrl?: string | null
     documents?: {
       id: string
@@ -111,6 +112,7 @@ export function EmployeeDialog({ employee, trigger, stores: initialStores }: Emp
       middleName: employee?.middleName || "",
       phone: employee?.phone || "",
       email: employee?.email || "",
+      login: employee?.login || "",
       password: "",
       birthDate: employee?.birthDate ? new Date(employee.birthDate).toISOString().split('T')[0] : "",
       position: employee?.position || "",
@@ -404,15 +406,33 @@ export function EmployeeDialog({ employee, trigger, stores: initialStores }: Emp
                 />
               </div>
 
-              {/* Пароль */}
-              <div className="grid grid-cols-1 gap-3 sm:gap-4">
+              {/* Логин и Пароль */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg bg-muted/10">
+                <FormField
+                  control={form.control}
+                  name="login"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium">Логин для посещаемости</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="user123" 
+                          className="h-10 text-sm sm:text-base" 
+                          {...field} 
+                          value={field.value || ""} 
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="password"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-sm font-medium">
-                        {isEditing ? "Новый пароль (оставьте пустым чтобы не менять)" : "Пароль"}
+                        {isEditing ? "Новый пароль" : "Пароль"}
                       </FormLabel>
                       <FormControl>
                         <Input 

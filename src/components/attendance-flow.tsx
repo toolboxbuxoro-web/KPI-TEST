@@ -50,7 +50,18 @@ export function AttendanceFlow() {
 
     setIsLoading(true)
     try {
-      const result = await authenticateStore(login, password)
+      // Get client IP for IP restriction check
+      let clientIP: string | null = null
+      try {
+        const ipResponse = await fetch('/api/client-ip')
+        const ipData = await ipResponse.json()
+        clientIP = ipData.ip
+      } catch {
+        // Continue without IP - server will reject if store has IP restrictions
+        console.warn('Failed to get client IP')
+      }
+
+      const result = await authenticateStore(login, password, clientIP)
       if (result.success && result.storeId) {
         setStoreId(result.storeId)
         setStoreName(result.storeName || null)

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2, QrCode as QrCodeIcon, Download, KeyRound } from 'lucide-react'
+import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2, QrCode as QrCodeIcon, Download, KeyRound, Globe, X } from 'lucide-react'
 import QRCode from "react-qr-code"
 
 // Dynamic import for Leaflet map (SSR incompatible)
@@ -56,6 +56,7 @@ interface StoreFormData {
   address: string
   login: string
   password: string
+  allowedIPs: string[]
   latitude: string
   longitude: string
   radiusMeters: number
@@ -82,6 +83,7 @@ export default function StoresPage() {
     address: '',
     login: '',
     password: '',
+    allowedIPs: [],
     latitude: '',
     longitude: '',
     radiusMeters: 100,
@@ -89,6 +91,10 @@ export default function StoresPage() {
     workEndHour: 18,
     isActive: true
   })
+  
+  // IP address input state
+  const [newIP, setNewIP] = useState('')
+  const [ipError, setIpError] = useState<string | null>(null)
 
   const loadStores = async () => {
     setIsLoading(true)
@@ -113,6 +119,7 @@ export default function StoresPage() {
       address: '',
       login: '',
       password: '',
+      allowedIPs: [],
       latitude: '',
       longitude: '',
       radiusMeters: 100,
@@ -122,6 +129,8 @@ export default function StoresPage() {
     })
     setEditingStore(null)
     setGeoError(null)
+    setNewIP('')
+    setIpError(null)
   }
 
   const openEditDialog = (store: any) => {
@@ -131,6 +140,7 @@ export default function StoresPage() {
       address: store.address || '',
       login: store.login || '',
       password: '', // Don't show existing password
+      allowedIPs: store.allowedIPs || [],
       latitude: store.latitude ? String(store.latitude) : '',
       longitude: store.longitude ? String(store.longitude) : '',
       radiusMeters: store.radiusMeters ?? 100,
@@ -139,6 +149,8 @@ export default function StoresPage() {
       isActive: store.isActive
     })
     setGeoError(null)
+    setNewIP('')
+    setIpError(null)
     setDialogOpen(true)
   }
 
@@ -198,6 +210,51 @@ export default function StoresPage() {
       if (!lngStr) return true
       const val = getValidCoordinate(lngStr)
       return val !== null && val >= -180 && val <= 180
+  }
+
+  // IP address validation (basic IPv4/IPv6 check)
+  const isValidIPFormat = (ip: string): boolean => {
+    // IPv4 pattern
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/
+    if (ipv4Regex.test(ip)) {
+      const parts = ip.split('.')
+      return parts.every(part => {
+        const num = parseInt(part, 10)
+        return num >= 0 && num <= 255
+      })
+    }
+    // IPv6 pattern (simplified)
+    const ipv6Regex = /^([0-9a-fA-F]{1,4}:){1,7}[0-9a-fA-F]{1,4}$|^::1?$/
+    return ipv6Regex.test(ip)
+  }
+
+  const addIP = () => {
+    const trimmedIP = newIP.trim()
+    if (!trimmedIP) return
+
+    if (!isValidIPFormat(trimmedIP)) {
+      setIpError('Неверный формат IP-адреса')
+      return
+    }
+
+    if (formData.allowedIPs.includes(trimmedIP)) {
+      setIpError('Этот IP-адрес уже добавлен')
+      return
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      allowedIPs: [...prev.allowedIPs, trimmedIP]
+    }))
+    setNewIP('')
+    setIpError(null)
+  }
+
+  const removeIP = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      allowedIPs: prev.allowedIPs.filter((_, i) => i !== index)
+    }))
   }
 
   const latNum = getValidCoordinate(formData.latitude)
@@ -374,6 +431,109 @@ export default function StoresPage() {
                   <p className="text-xs text-muted-foreground">
                     Оставьте пароль пустым, если не хотите менять
                   </p>
+                )}
+              </div>
+
+              {/* Allowed IPs Section */}
+              <div className="space-y-4 p-4 rounded-xl bg-gradient-to-br from-blue-500/5 to-transparent border border-blue-500/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <Globe className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium">Ограничение по IP</span>
+                      {formData.allowedIPs.length > 0 && (
+                        <Badge variant="secondary" className="ml-2 text-xs">
+                          {formData.allowedIPs.length} адресов
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {formData.allowedIPs.length === 0 && (
+                    <Badge variant="outline" className="bg-yellow-500/10 border-yellow-500/30 text-yellow-600 text-xs">
+                      Открыт для всех
+                    </Badge>
+                  )}
+                </div>
+                
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Укажите IP-адреса, с которых разрешён вход в терминал этого магазина. 
+                  Если список пустой — вход разрешён с любого IP.
+                </p>
+                
+                {/* Add new IP - improved input */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Добавить IP-адрес</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder="Например: 192.168.1.100"
+                        value={newIP}
+                        onChange={(e) => {
+                          setNewIP(e.target.value)
+                          setIpError(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            addIP()
+                          }
+                        }}
+                        className={`font-mono ${ipError ? 'border-destructive focus:ring-destructive/20' : 'focus:border-blue-500/50 focus:ring-blue-500/20'}`}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={addIP}
+                      disabled={!newIP.trim()}
+                      className="gap-1.5 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Добавить
+                    </Button>
+                  </div>
+                  {ipError && (
+                    <div className="flex items-center gap-1.5 text-destructive text-xs">
+                      <AlertCircle className="h-3 w-3" />
+                      {ipError}
+                    </div>
+                  )}
+                </div>
+                
+                {/* List of allowed IPs - improved visualization */}
+                {formData.allowedIPs.length > 0 ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Разрешённые IP-адреса:</Label>
+                    <div className="flex flex-wrap gap-2 p-3 rounded-lg bg-background/50 border border-white/5">
+                      {formData.allowedIPs.map((ip, index) => (
+                        <div 
+                          key={index}
+                          className="group flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 pl-3 pr-1.5 py-1.5 rounded-lg text-sm font-mono transition-colors"
+                        >
+                          <span>{ip}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeIP(index)}
+                            className="h-5 w-5 rounded flex items-center justify-center hover:bg-destructive/20 hover:text-destructive transition-colors"
+                            title="Удалить"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-yellow-500/5 border border-yellow-500/20">
+                    <div className="h-8 w-8 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0">
+                      <AlertCircle className="h-4 w-4 text-yellow-500" />
+                    </div>
+                    <p className="text-xs text-yellow-600">
+                      IP-ограничения не настроены. Вход в терминал разрешён с любого устройства.
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -590,7 +750,7 @@ export default function StoresPage() {
                   </div>
                 </div>
                 
-                <div className="mt-3">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   {store.isActive ? (
                     <Badge variant="outline" className="bg-green-500/10 border-green-500/30 text-green-600">
                       <CheckCircle className="h-3 w-3 mr-1" />
@@ -602,7 +762,34 @@ export default function StoresPage() {
                       Неактивен
                     </Badge>
                   )}
+                  
+                  {/* IP Restrictions Badge */}
+                  {store.allowedIPs && store.allowedIPs.length > 0 ? (
+                    <Badge variant="outline" className="bg-blue-500/10 border-blue-500/30 text-blue-600" title={store.allowedIPs.join(', ')}>
+                      <Globe className="h-3 w-3 mr-1" />
+                      {store.allowedIPs.length} IP
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-yellow-500/10 border-yellow-500/30 text-yellow-600">
+                      <Globe className="h-3 w-3 mr-1" />
+                      Любой IP
+                    </Badge>
+                  )}
                 </div>
+                
+                {/* Show IPs list if any */}
+                {store.allowedIPs && store.allowedIPs.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {store.allowedIPs.slice(0, 3).map((ip: string, idx: number) => (
+                      <span key={idx} className="text-xs font-mono text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
+                        {ip}
+                      </span>
+                    ))}
+                    {store.allowedIPs.length > 3 && (
+                      <span className="text-xs text-muted-foreground">+{store.allowedIPs.length - 3}</span>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

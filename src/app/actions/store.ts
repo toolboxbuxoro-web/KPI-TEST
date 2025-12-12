@@ -14,6 +14,7 @@ export interface StoreData {
   address?: string
   login?: string
   password?: string
+  allowedIPs?: string[]
   latitude?: number | null
   longitude?: number | null
   radiusMeters?: number
@@ -38,6 +39,7 @@ export async function createStore(data: StoreData) {
       address: data.address || null,
       login: data.login || null,
       password: passwordHash,
+      allowedIPs: data.allowedIPs ?? [],
       latitude: data.latitude ?? null,
       longitude: data.longitude ?? null,
       radiusMeters: data.radiusMeters ?? 100,

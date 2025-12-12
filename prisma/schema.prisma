@@ -21,6 +21,7 @@ model Store {
   address       String?
   login         String?            @unique // Login for store attendance terminal
   password      String?            // Hashed password for store attendance
+  allowedIPs    String[]           @default([]) // Allowed IP addresses for terminal access
   latitude      Float?
   longitude     Float?
   radiusMeters  Int                @default(100)

@@ -2,6 +2,7 @@
 
 import prisma from "@/lib/db"
 import bcrypt from "bcryptjs"
+import { isIPAllowed } from "@/lib/get-client-ip"
 
 export interface StoreAuthResult {
   success: boolean
@@ -13,8 +14,15 @@ export interface StoreAuthResult {
 /**
  * Authenticate store by login and password
  * Used for store terminal login
+ * @param login Store login
+ * @param password Store password
+ * @param clientIP Client IP address (optional, but required if store has IP restrictions)
  */
-export async function authenticateStore(login: string, password: string): Promise<StoreAuthResult> {
+export async function authenticateStore(
+  login: string, 
+  password: string,
+  clientIP?: string | null
+): Promise<StoreAuthResult> {
   if (!login || !password) {
     return { success: false, error: "Введите логин и пароль" }
   }
@@ -25,7 +33,8 @@ export async function authenticateStore(login: string, password: string): Promis
       id: true,
       name: true,
       password: true,
-      isActive: true
+      isActive: true,
+      allowedIPs: true
     }
   })
 
@@ -39,6 +48,20 @@ export async function authenticateStore(login: string, password: string): Promis
 
   if (!store.password) {
     return { success: false, error: "Пароль магазина не настроен" }
+  }
+
+  // Check IP restrictions
+  if (store.allowedIPs && store.allowedIPs.length > 0) {
+    if (!clientIP) {
+      return { success: false, error: "Не удалось определить IP-адрес" }
+    }
+    
+    if (!isIPAllowed(clientIP, store.allowedIPs)) {
+      return { 
+        success: false, 
+        error: "Доступ с этого IP-адреса запрещён" 
+      }
+    }
   }
 
   const passwordMatch = await bcrypt.compare(password, store.password)

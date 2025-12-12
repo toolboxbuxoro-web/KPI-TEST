@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { TodayActivityList } from "@/components/admin/TodayActivityList"
 
 interface StoreOption {
   id: string
@@ -411,8 +412,18 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
 
   return (
     <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
-      {/* Mobile View Toggles */}
-      <div className="lg:hidden flex mb-4 bg-muted/50 p-1 rounded-xl">
+      {/* Mobile: Full-page Activity List */}
+      {activeTab === 'list' && (
+        <div className="lg:hidden flex flex-col h-full">
+          <TodayActivityList 
+            storeId={selectedStoreId || undefined} 
+            onBack={() => setActiveTab('scanner')} 
+          />
+        </div>
+      )}
+
+      {/* Mobile View Toggles - only show when on scanner */}
+      <div className={`lg:hidden flex mb-4 bg-muted/50 p-1 rounded-xl ${activeTab === 'list' ? 'hidden' : ''}`}>
         <Button 
            variant={activeTab === 'scanner' ? 'default' : 'ghost'} 
            className={`flex-1 rounded-lg ${activeTab === 'scanner' ? 'shadow-sm' : ''}`}
@@ -431,9 +442,9 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
         </Button>
       </div>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 flex-1 min-h-0">
+      <div className={`flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-6 flex-1 min-h-0 ${activeTab === 'list' ? 'hidden lg:flex' : ''}`}>
         {/* Left Panel: Scanner */}
-        <Card className={`lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float h-full lg:max-h-[calc(100vh-10rem)] ${activeTab === 'list' ? 'hidden lg:flex' : 'flex'}`}>
+        <Card className={`lg:col-span-7 flex flex-col overflow-hidden neo-card neo-float h-full lg:max-h-[calc(100vh-10rem)] flex`}>
           <CardHeader className="pb-4 border-b bg-card/50 backdrop-blur-sm z-10 flex flex-row items-center justify-between h-auto min-h-[5rem] px-6">
               <div className="space-y-1">
                   {preselectedStoreId ? (
@@ -690,7 +701,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
         </Card>
 
         {/* Right Panel: Recent Activity */}
-        <Card className={`lg:col-span-5 flex-col h-full neo-card neo-float lg:flex ${activeTab === 'list' ? 'flex' : 'hidden'}`}>
+        <Card className={`lg:col-span-5 flex flex-col h-full max-h-[calc(100vh-8rem)] overflow-hidden neo-card neo-float lg:flex ${activeTab === 'list' ? 'flex' : 'hidden'}`}>
           <CardHeader className="pb-4 border-b">
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
@@ -775,8 +786,8 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
             )}
 
             {/* Scrollable Activity List */}
-            <div className="flex-1 min-h-0 flex flex-col bg-slate-50/50 dark:bg-slate-900/10">
-                 <div className="px-6 py-3 border-b bg-muted/20 flex items-center justify-between shrink-0 backdrop-blur-sm sticky top-0 z-10">
+            <div className="flex-1 flex flex-col min-h-0 bg-slate-50/50 dark:bg-slate-900/10">
+                 <div className="px-6 py-3 border-b bg-muted/20 flex items-center justify-between shrink-0 backdrop-blur-sm z-10">
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                         <Clock className="h-3 w-3" />
                         Все записи
@@ -784,7 +795,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                       <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-background/50">{recentLogs.length}</Badge>
                  </div>
                  
-                 <ScrollArea className="flex-1 w-full">
+                 <div className="flex-1 overflow-y-auto min-h-0">
                     <div className="p-4 space-y-3">
                         {recentLogs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-3">
@@ -808,28 +819,28 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                                                 {log.employee.firstName} {log.employee.lastName}
                                             </p>
                                             <span className="text-xs text-muted-foreground font-mono">
-                                          {new Date(log.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                      </span>
-                                  </div>
-                                  <p className="text-xs text-muted-foreground mb-3 truncate">{log.employee.position}</p>
-                                  
-                                  <div className="flex flex-wrap gap-2">
-                                      <Badge variant="outline" className="bg-green-500/5 text-green-600 border-green-200 dark:border-green-900">
-                                          Вход: {new Date(log.checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                      </Badge>
-                                      {log.checkOut && (
-                                          <Badge variant="outline" className="bg-orange-500/5 text-orange-600 border-orange-200 dark:border-orange-900">
-                                              Выход: {new Date(log.checkOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                          </Badge>
-                                      )}
-                                  </div>
-                              </div>
-                          </div>
-                      ))
-                  )}
-              </div>
-            </ScrollArea>
-           </div>
+                                                {new Date(log.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mb-3 truncate">{log.employee.position}</p>
+                                        
+                                        <div className="flex flex-wrap gap-2">
+                                            <Badge variant="outline" className="bg-green-500/5 text-green-600 border-green-200 dark:border-green-900">
+                                                Вход: {new Date(log.checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </Badge>
+                                            {log.checkOut && (
+                                                <Badge variant="outline" className="bg-orange-500/5 text-orange-600 border-orange-200 dark:border-orange-900">
+                                                    Выход: {new Date(log.checkOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                 </div>
+            </div>
           </CardContent>
           <CardFooter className="border-t bg-muted/20 p-4">
               <div className="w-full flex justify-between text-xs text-muted-foreground">

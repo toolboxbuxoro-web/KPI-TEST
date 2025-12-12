@@ -700,12 +700,12 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
               Последние действия сотрудников
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 p-0 overflow-hidden">
-            <ScrollArea className="h-full">
-            <div className="p-6 space-y-4">
-                {/* Early Birds Section */}
-                {earlyBirds.length > 0 && (
-                    <div className="mb-6 bg-gradient-to-br from-yellow-500/10 to-transparent p-4 rounded-xl border border-yellow-500/20">
+          <CardContent className="flex-1 flex flex-col overflow-hidden p-0">
+            
+            {/* Fixed Early Birds Section */}
+            {earlyBirds.length > 0 && (
+                <div className="p-6 pb-4 border-b shrink-0 bg-card z-10">
+                    <div className="bg-gradient-to-br from-yellow-500/10 to-transparent p-4 rounded-xl border border-yellow-500/20">
                         <div className="flex items-center gap-2 mb-4">
                             <Trophy className="h-5 w-5 text-yellow-500" />
                             <h3 className="font-semibold text-yellow-600 dark:text-yellow-400">Ранние пташки</h3>
@@ -771,33 +771,43 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                              )}
                         </div>
                     </div>
-                )}
-                
-                {/* Activity List Title */}
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Все записи</h4>
-                
-                  {recentLogs.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-3">
-                          <div className="bg-muted rounded-full p-4">
-                              <Clock className="h-8 w-8 opacity-50" />
-                          </div>
-                          <p>Записей пока нет</p>
-                      </div>
-                  ) : (
-                      recentLogs.map((log) => (
-                          <div key={log.id} className="group flex items-start gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 hover:shadow-md transition-all duration-200">
-                              <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
-                                  <AvatarImage src={log.employee.imageUrl} />
-                                  <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                                      {log.employee.firstName[0]}{log.employee.lastName[0]}
-                                  </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between mb-1">
-                                      <p className="font-semibold truncate">
-                                          {log.employee.firstName} {log.employee.lastName}
-                                      </p>
-                                      <span className="text-xs text-muted-foreground font-mono">
+                </div>
+            )}
+
+            {/* Scrollable Activity List */}
+            <div className="flex-1 min-h-0 flex flex-col bg-slate-50/50 dark:bg-slate-900/10">
+                 <div className="px-6 py-3 border-b bg-muted/20 flex items-center justify-between shrink-0 backdrop-blur-sm sticky top-0 z-10">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <Clock className="h-3 w-3" />
+                        Все записи
+                      </h4>
+                      <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-background/50">{recentLogs.length}</Badge>
+                 </div>
+                 
+                 <ScrollArea className="flex-1 w-full">
+                    <div className="p-4 space-y-3">
+                        {recentLogs.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-3">
+                                <div className="bg-muted rounded-full p-4">
+                                    <Clock className="h-8 w-8 opacity-50" />
+                                </div>
+                                <p>Записей пока нет</p>
+                            </div>
+                        ) : (
+                            recentLogs.map((log) => (
+                                <div key={log.id} className="group flex items-start gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 hover:shadow-md transition-all duration-200">
+                                    <Avatar className="h-12 w-12 border-2 border-background shadow-sm group-hover:scale-105 transition-transform">
+                                        <AvatarImage src={log.employee.imageUrl} />
+                                        <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                                            {log.employee.firstName[0]}{log.employee.lastName[0]}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <p className="font-semibold truncate">
+                                                {log.employee.firstName} {log.employee.lastName}
+                                            </p>
+                                            <span className="text-xs text-muted-foreground font-mono">
                                           {new Date(log.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                       </span>
                                   </div>
@@ -819,6 +829,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                   )}
               </div>
             </ScrollArea>
+           </div>
           </CardContent>
           <CardFooter className="border-t bg-muted/20 p-4">
               <div className="w-full flex justify-between text-xs text-muted-foreground">

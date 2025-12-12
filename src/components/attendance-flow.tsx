@@ -17,7 +17,8 @@ import {
   Fingerprint,
   KeyRound,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Globe
 } from "lucide-react"
 import Link from 'next/link'
 import { useSession } from "next-auth/react"
@@ -31,6 +32,7 @@ export function AttendanceFlow() {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [currentIP, setCurrentIP] = useState<string | null>(null)
 
   // Persist storeId in localStorage to survive refreshes in Kiosk mode
   useEffect(() => {
@@ -41,6 +43,16 @@ export function AttendanceFlow() {
       setStoreName(savedStoreName)
     }
   }, [])
+
+  // Fetch current IP when login form is shown
+  useEffect(() => {
+    if (isLoggingIn && !currentIP) {
+      fetch('/api/client-ip')
+        .then(res => res.json())
+        .then(data => setCurrentIP(data.ip))
+        .catch(() => setCurrentIP(null))
+    }
+  }, [isLoggingIn, currentIP])
 
   const handleLogin = async () => {
     if (!login.trim() || !password.trim()) {
@@ -176,6 +188,15 @@ export function AttendanceFlow() {
                   )}
                 </Button>
               </div>
+              
+              {/* Current IP display */}
+              {currentIP && (
+                <div className="flex items-center justify-center gap-2 pt-4 border-t border-white/10">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Ваш IP:</span>
+                  <span className="text-sm font-mono text-primary bg-primary/10 px-2 py-0.5 rounded">{currentIP}</span>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>

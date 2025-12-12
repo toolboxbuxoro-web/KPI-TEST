@@ -9,6 +9,7 @@ export interface StoreAuthResult {
   storeId?: string
   storeName?: string
   error?: string
+  debug?: { clientIP?: string | null; allowedIPs?: string[] } // Debug info
 }
 
 /**
@@ -52,14 +53,25 @@ export async function authenticateStore(
 
   // Check IP restrictions
   if (store.allowedIPs && store.allowedIPs.length > 0) {
+    // Log for debugging
+    console.log('[Store Auth] Checking IP restriction:', {
+      clientIP,
+      allowedIPs: store.allowedIPs
+    })
+
     if (!clientIP) {
-      return { success: false, error: "Не удалось определить IP-адрес" }
+      return { 
+        success: false, 
+        error: "Не удалось определить IP-адрес. Проверьте настройки сервера.",
+        debug: { clientIP, allowedIPs: store.allowedIPs }
+      }
     }
     
     if (!isIPAllowed(clientIP, store.allowedIPs)) {
       return { 
         success: false, 
-        error: "Доступ с этого IP-адреса запрещён" 
+        error: `Доступ с IP ${clientIP} запрещён`,
+        debug: { clientIP, allowedIPs: store.allowedIPs }
       }
     }
   }

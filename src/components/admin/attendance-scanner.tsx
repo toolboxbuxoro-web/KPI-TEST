@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
-import { Loader2, ScanLine, UserCheck, UserMinus, Clock, Camera, RefreshCw, ScanFace, AlertCircle, CheckCircle2, XCircle, Store, Lock, LogOut } from 'lucide-react'
+import { Loader2, ScanLine, UserCheck, UserMinus, Clock, Camera, RefreshCw, ScanFace, AlertCircle, CheckCircle2, XCircle, Store, Lock, LogOut, Trophy, Medal } from 'lucide-react'
 import Webcam from 'react-webcam'
 import * as faceapi from 'face-api.js'
 
@@ -310,16 +310,41 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
     try {
       const result = await registerAttendance(targetEmployee.id, scanMode, selectedStoreId || undefined)
       
-      // Update cooldown map on success
-      if (result.success) {
-           const scanKey = `${targetEmployee.id}-${scanMode}`
-           setLastScanned(prev => ({...prev, [scanKey]: Date.now()}))
-           setResultOverlay({ 
-               type: 'success', 
-               message: result.message || 'Успешно', 
-               employee: targetEmployee 
-           })
-           fetchLogs()
+       // Helper for Uzbek messages
+       const greetingMessages = [
+           "Ishingizga omad!",
+           "Xush kelibsiz!",
+           "Kuningiz xayrli o'tsin!",
+           "Yaxshi ishlang!",
+           "Olg'a!"
+       ]
+       
+       const farewellMessages = [
+           "Yaxshi dam oling!",
+           "Xayr, sog' bo'ling!",
+           "Charchamang!",
+           "Ertagacha!",
+           "Rahmat, yaxshi boring!"
+       ]
+
+       // Random message picker
+       const getRandomMessage = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)]
+
+       // Update cooldown map on success
+       if (result.success) {
+            const scanKey = `${targetEmployee.id}-${scanMode}`
+            setLastScanned(prev => ({...prev, [scanKey]: Date.now()}))
+            
+            const successMsg = scanMode === 'in' 
+                ? getRandomMessage(greetingMessages)
+                : getRandomMessage(farewellMessages)
+
+            setResultOverlay({ 
+                type: 'success', 
+                message: successMsg, 
+                employee: targetEmployee 
+            })
+            fetchLogs()
       } else {
            // Handle specific statuses
            if (result.status === 'ALREADY_CHECKED_IN' || result.status === 'ALREADY_CHECKED_OUT') {
@@ -367,6 +392,22 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
     setCameraError(errorMessage)
     setVerificationStatus("Ошибка камеры")
   }
+
+  // Calculate Top 3 Early Birds
+  const earlyBirds = useMemo(() => {
+    // Filter logs that have a check-in time, deduplicate by employee, and sort by check-in time (ascending)
+    const checkedInEmployees = new Map();
+    
+    recentLogs.forEach(log => {
+      if (log.checkIn && !checkedInEmployees.has(log.employee.id)) {
+         checkedInEmployees.set(log.employee.id, log);
+      }
+    });
+
+    return Array.from(checkedInEmployees.values())
+      .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())
+      .slice(0, 3);
+  }, [recentLogs]);
 
   return (
     <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
@@ -661,7 +702,80 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
           </CardHeader>
           <CardContent className="flex-1 p-0 overflow-hidden">
             <ScrollArea className="h-full">
-              <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4">
+                {/* Early Birds Section */}
+                {earlyBirds.length > 0 && (
+                    <div className="mb-6 bg-gradient-to-br from-yellow-500/10 to-transparent p-4 rounded-xl border border-yellow-500/20">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Trophy className="h-5 w-5 text-yellow-500" />
+                            <h3 className="font-semibold text-yellow-600 dark:text-yellow-400">Ранние пташки</h3>
+                        </div>
+                        <div className="flex justify-around items-end gap-2">
+                             {/* 2nd Place */}
+                             {earlyBirds[1] && (
+                                <div className="flex flex-col items-center gap-1 group">
+                                     <div className="relative">
+                                        <Avatar className="h-12 w-12 border-2 border-slate-300 shadow-md transform sm:group-hover:-translate-y-1 transition-transform">
+                                            <AvatarImage src={earlyBirds[1].employee.imageUrl} />
+                                            <AvatarFallback>{earlyBirds[1].employee.firstName[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute -bottom-2 -right-1 bg-slate-300 text-slate-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-white">
+                                            #2
+                                        </div>
+                                     </div>
+                                     <div className="text-center">
+                                         <p className="text-xs font-semibold truncate max-w-[80px]">{earlyBirds[1].employee.firstName}</p>
+                                         <p className="text-[10px] text-muted-foreground">{new Date(earlyBirds[1].checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                     </div>
+                                </div>
+                             )}
+
+                             {/* 1st Place */}
+                             {earlyBirds[0] && (
+                                <div className="flex flex-col items-center gap-1 -mt-4 group relative z-10">
+                                     <div className="relative">
+                                         <div className="absolute -top-6 left-0 right-0 flex justify-center text-yellow-500 animate-bounce">
+                                            <Trophy className="h-6 w-6 fill-yellow-500" />
+                                         </div>
+                                        <Avatar className="h-16 w-16 border-4 border-yellow-400 shadow-xl transform sm:group-hover:-translate-y-1 transition-transform bg-background">
+                                            <AvatarImage src={earlyBirds[0].employee.imageUrl} />
+                                            <AvatarFallback className="text-xl bg-yellow-100 text-yellow-700">{earlyBirds[0].employee.firstName[0]}</AvatarFallback>
+                                        </Avatar>
+                                     </div>
+                                     <div className="text-center mt-1">
+                                         <p className="text-sm font-bold truncate max-w-[100px] text-yellow-600 dark:text-yellow-400">{earlyBirds[0].employee.firstName}</p>
+                                         <Badge variant="outline" className="text-[10px] bg-yellow-500/10 border-yellow-500/20 text-yellow-600">
+                                            {new Date(earlyBirds[0].checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                         </Badge>
+                                     </div>
+                                </div>
+                             )}
+
+                             {/* 3rd Place */}
+                             {earlyBirds[2] && (
+                                <div className="flex flex-col items-center gap-1 group">
+                                     <div className="relative">
+                                        <Avatar className="h-12 w-12 border-2 border-orange-300 shadow-md transform sm:group-hover:-translate-y-1 transition-transform">
+                                            <AvatarImage src={earlyBirds[2].employee.imageUrl} />
+                                            <AvatarFallback>{earlyBirds[2].employee.firstName[0]}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="absolute -bottom-2 -left-1 bg-orange-300 text-orange-900 text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-white">
+                                            #3
+                                        </div>
+                                     </div>
+                                     <div className="text-center">
+                                         <p className="text-xs font-semibold truncate max-w-[80px]">{earlyBirds[2].employee.firstName}</p>
+                                         <p className="text-[10px] text-muted-foreground">{new Date(earlyBirds[2].checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                                     </div>
+                                </div>
+                             )}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Activity List Title */}
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Все записи</h4>
+                
                   {recentLogs.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground space-y-3">
                           <div className="bg-muted rounded-full p-4">

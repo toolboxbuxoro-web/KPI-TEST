@@ -411,10 +411,10 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
   }, [recentLogs]);
 
   return (
-    <div className="flex flex-col h-full max-h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-full max-h-[calc(100vh-8rem)] min-h-0">
       {/* Mobile: Full-page Activity List */}
       {activeTab === 'list' && (
-        <div className="lg:hidden flex flex-col h-full">
+        <div className="lg:hidden flex flex-col h-full min-h-0">
           <TodayActivityList 
             storeId={selectedStoreId || undefined} 
             onBack={() => setActiveTab('scanner')} 

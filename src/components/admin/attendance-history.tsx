@@ -78,9 +78,9 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
   }
 
   return (
-    <div className="flex flex-col xl:flex-row gap-8 h-[600px]">
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 xl:gap-8 min-h-[400px] lg:h-[600px]">
       {/* Left: Calendar & Filters */}
-      <div className="w-full xl:w-auto flex flex-col gap-4">
+      <div className="w-full lg:w-auto flex flex-col gap-3 lg:gap-4">
         <div className="flex items-center gap-2 p-1 bg-muted/50 rounded-lg border">
             <Select 
                 value={date.getMonth().toString()} 
@@ -90,7 +90,7 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
                     setDate(newDate)
                 }}
             >
-                <SelectTrigger className="w-[140px] border-0 bg-transparent focus:ring-0">
+                <SelectTrigger className="w-[110px] sm:w-[140px] text-xs sm:text-sm border-0 bg-transparent focus:ring-0">
                     <SelectValue placeholder="Месяц" />
                 </SelectTrigger>
                 <SelectContent>
@@ -112,7 +112,7 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
                     setDate(newDate)
                 }}
             >
-                <SelectTrigger className="w-[100px] border-0 bg-transparent focus:ring-0">
+                <SelectTrigger className="w-[80px] sm:w-[100px] text-xs sm:text-sm border-0 bg-transparent focus:ring-0">
                     <SelectValue placeholder="Год" />
                 </SelectTrigger>
                 <SelectContent>
@@ -123,7 +123,7 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
             </Select>
         </div>
 
-        <div className="border rounded-xl p-4 shadow-sm bg-card">
+        <div className="border rounded-lg lg:rounded-xl p-2 sm:p-4 shadow-sm bg-card">
             <Calendar
                 mode="single"
                 selected={selectedDay}
@@ -150,17 +150,17 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
                 }}
                 className="rounded-md"
             />
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted-foreground justify-center">
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
+            <div className="mt-2 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground justify-center">
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500" />
                     <span>Полный день</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-amber-500" />
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-amber-500" />
                     <span>Нет выхода</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
+                <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-muted-foreground/30" />
                     <span>Нет входа</span>
                 </div>
             </div>
@@ -168,7 +168,7 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
       </div>
 
       {/* Right: Details */}
-      <div className="flex-1 flex flex-col min-h-0 border rounded-xl bg-muted/10 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-[300px] lg:min-h-0 border rounded-lg lg:rounded-xl bg-muted/10 overflow-hidden">
         {!selectedDay ? (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground gap-4">
                 <CalendarIcon className="h-12 w-12 opacity-20" />
@@ -176,34 +176,34 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
             </div>
         ) : (
             <div className="flex flex-col h-full">
-                <div className="p-6 border-b bg-card">
-                    <h3 className="text-xl font-semibold flex items-center gap-2">
-                        <CalendarIcon className="h-5 w-5 text-primary" />
+                <div className="p-3 sm:p-4 lg:p-6 border-b bg-card">
+                    <h3 className="text-base sm:text-lg lg:text-xl font-semibold flex items-center gap-2">
+                        <CalendarIcon className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
                         {selectedDay.toLocaleDateString('ru', { weekday: 'long', day: 'numeric', month: 'long' })}
                     </h3>
                 </div>
 
-                <ScrollArea className="flex-1 p-6">
+                <ScrollArea className="flex-1 p-3 sm:p-4 lg:p-6">
                     {dayRecords.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-3">
-                            <Clock className="h-10 w-10 opacity-20" />
-                            <p>Нет записей за этот день</p>
+                        <div className="flex flex-col items-center justify-center py-8 sm:py-12 text-muted-foreground gap-2 sm:gap-3">
+                            <Clock className="h-8 w-8 sm:h-10 sm:w-10 opacity-20" />
+                            <p className="text-sm sm:text-base">Нет записей за этот день</p>
                         </div>
                     ) : (
-                        <div className="space-y-6">
+                        <div className="space-y-4 sm:space-y-6">
                             {/* Summary Card */}
-                            <div className="bg-gradient-to-br from-primary/10 to-transparent p-6 rounded-2xl border border-primary/10">
+                            <div className="bg-gradient-to-br from-primary/10 to-transparent p-3 sm:p-4 lg:p-6 rounded-xl lg:rounded-2xl border border-primary/10">
                                 <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-primary/20 rounded-lg">
-                                            <Timer className="h-6 w-6 text-primary" />
+                                    <div className="flex items-center gap-2 sm:gap-3">
+                                        <div className="p-1.5 sm:p-2 bg-primary/20 rounded-lg">
+                                            <Timer className="h-4 w-4 sm:h-5 sm:w-5 lg:h-6 lg:w-6 text-primary" />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-medium text-muted-foreground">Рабочее время</p>
-                                            <p className="text-xs text-muted-foreground">(08:00 - 18:00)</p>
+                                            <p className="text-xs sm:text-sm font-medium text-muted-foreground">Рабочее время</p>
+                                            <p className="text-[10px] sm:text-xs text-muted-foreground">(08:00 - 18:00)</p>
                                         </div>
                                     </div>
-                                    <span className="text-3xl font-bold text-primary tracking-tight">
+                                    <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-primary tracking-tight">
                                         {(() => {
                                             let totalMilliseconds = 0
                                             dayRecords.forEach(record => {
@@ -235,46 +235,46 @@ export function AttendanceHistory({ employeeId }: AttendanceHistoryProps) {
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Хронология событий</h4>
+                            <div className="space-y-3 sm:space-y-4">
+                                <h4 className="text-xs sm:text-sm font-medium text-muted-foreground uppercase tracking-wider">Хронология событий</h4>
                                 {dayRecords.map((record, index) => (
-                                    <div key={record.id} className="relative pl-8 pb-8 last:pb-0">
+                                    <div key={record.id} className="relative pl-6 sm:pl-8 pb-6 sm:pb-8 last:pb-0">
                                         {/* Timeline Line */}
                                         {index !== dayRecords.length - 1 && (
-                                            <div className="absolute left-[11px] top-8 bottom-0 w-[2px] bg-border" />
+                                            <div className="absolute left-[9px] sm:left-[11px] top-6 sm:top-8 bottom-0 w-[2px] bg-border" />
                                         )}
                                         
                                         {/* Timeline Dot */}
-                                        <div className="absolute left-0 top-1 w-6 h-6 rounded-full border-4 border-background bg-primary shadow-sm z-10" />
+                                        <div className="absolute left-0 top-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full border-[3px] sm:border-4 border-background bg-primary shadow-sm z-10" />
 
-                                        <div className="bg-card border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                                            <div className="flex items-center justify-between mb-4">
-                                                <Badge variant="outline" className="flex items-center gap-1.5 py-1 px-3 bg-muted/50">
-                                                    <Store className="h-3.5 w-3.5" />
+                                        <div className="bg-card border rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+                                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 sm:mb-4">
+                                                <Badge variant="outline" className="flex items-center gap-1 sm:gap-1.5 py-0.5 sm:py-1 px-2 sm:px-3 bg-muted/50 text-[10px] sm:text-xs">
+                                                    <Store className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                                                     {record.store?.name || record.branch || "Не указано"}
                                                 </Badge>
-                                                <span className="text-xs text-muted-foreground font-mono">ID: {record.id.slice(-4)}</span>
+                                                <span className="text-[10px] sm:text-xs text-muted-foreground font-mono">ID: {record.id.slice(-4)}</span>
                                             </div>
                                             
-                                            <div className="grid grid-cols-2 gap-8">
-                                                <div className="space-y-1">
-                                                    <span className="text-xs text-muted-foreground font-medium uppercase">Вход</span>
+                                            <div className="grid grid-cols-2 gap-4 sm:gap-8">
+                                                <div className="space-y-0.5 sm:space-y-1">
+                                                    <span className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase">Вход</span>
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-xl font-bold text-green-600 dark:text-green-400">
+                                                        <span className="text-base sm:text-lg lg:text-xl font-bold text-green-600 dark:text-green-400">
                                                             {new Date(record.checkIn).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="space-y-1 text-right">
-                                                    <span className="text-xs text-muted-foreground font-medium uppercase">Выход</span>
+                                                <div className="space-y-0.5 sm:space-y-1 text-right">
+                                                    <span className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase">Выход</span>
                                                     <div className="flex items-center justify-end gap-2">
                                                         {record.checkOut ? (
-                                                            <span className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                                                            <span className="text-base sm:text-lg lg:text-xl font-bold text-orange-600 dark:text-orange-400">
                                                                 {new Date(record.checkOut).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-sm italic text-muted-foreground py-1">Активная сессия</span>
+                                                            <span className="text-xs sm:text-sm italic text-muted-foreground py-0.5 sm:py-1">Активная сессия</span>
                                                         )}
                                                     </div>
                                                 </div>

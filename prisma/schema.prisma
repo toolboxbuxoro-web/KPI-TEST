@@ -22,6 +22,8 @@ model Store {
   login         String?            @unique // Login for store attendance terminal
   password      String?            // Hashed password for store attendance
   allowedIPs    String[]           @default([]) // Allowed IP addresses for terminal access
+  lastActiveIP  String?            // Last IP that accessed terminal
+  lastActiveAt  DateTime?          // Last activity timestamp
   latitude      Float?
   longitude     Float?
   radiusMeters  Int                @default(100)

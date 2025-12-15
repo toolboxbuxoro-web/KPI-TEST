@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
-import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2, QrCode as QrCodeIcon, Download, KeyRound, Globe, X } from 'lucide-react'
+import { Plus, Store, Edit, Trash2, Clock, Users, MoreHorizontal, CheckCircle, AlertCircle, MapPin, Navigation, Loader2, QrCode as QrCodeIcon, Download, KeyRound, Globe, X, Wifi } from 'lucide-react'
 import QRCode from "react-qr-code"
 
 // Dynamic import for Leaflet map (SSR incompatible)
@@ -50,6 +50,22 @@ import {
   updateStore, 
   deleteStore 
 } from '@/app/actions/store'
+
+// Helper function to format time ago
+function formatTimeAgo(date: Date): string {
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+  const diffMin = Math.floor(diffSec / 60)
+  const diffHour = Math.floor(diffMin / 60)
+  const diffDay = Math.floor(diffHour / 24)
+
+  if (diffSec < 60) return 'только что'
+  if (diffMin < 60) return `${diffMin} мин. назад`
+  if (diffHour < 24) return `${diffHour} ч. назад`
+  if (diffDay === 1) return 'вчера'
+  return `${diffDay} дн. назад`
+}
 
 interface StoreFormData {
   name: string
@@ -787,6 +803,22 @@ export default function StoresPage() {
                     ))}
                     {store.allowedIPs.length > 3 && (
                       <span className="text-xs text-muted-foreground">+{store.allowedIPs.length - 3}</span>
+                    )}
+                  </div>
+                )}
+                
+                {/* Active Terminal IP */}
+                {store.lastActiveIP && (
+                  <div className="mt-3 p-2 rounded-lg bg-green-500/5 border border-green-500/20">
+                    <div className="flex items-center gap-2">
+                      <Wifi className="h-3.5 w-3.5 text-green-500" />
+                      <span className="text-xs text-green-600">Терминал активен:</span>
+                      <span className="text-xs font-mono text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded">{store.lastActiveIP}</span>
+                    </div>
+                    {store.lastActiveAt && (
+                      <p className="text-xs text-muted-foreground mt-1 ml-5">
+                        {formatTimeAgo(new Date(store.lastActiveAt))}
+                      </p>
                     )}
                   </div>
                 )}

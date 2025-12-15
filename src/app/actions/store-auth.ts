@@ -81,6 +81,15 @@ export async function authenticateStore(
     return { success: false, error: "Неверный логин или пароль" }
   }
 
+  // Update last active IP and timestamp
+  await prisma.store.update({
+    where: { id: store.id },
+    data: {
+      lastActiveIP: clientIP || null,
+      lastActiveAt: new Date()
+    }
+  })
+
   return {
     success: true,
     storeId: store.id,

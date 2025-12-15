@@ -719,7 +719,7 @@ export function AttendanceScanner({ preselectedStoreId, onResetStore }: Attendan
                     <div className="bg-gradient-to-br from-yellow-500/10 to-transparent p-4 rounded-xl border border-yellow-500/20">
                         <div className="flex items-center gap-2 mb-4">
                             <Trophy className="h-5 w-5 text-yellow-500" />
-                            <h3 className="font-semibold text-yellow-600 dark:text-yellow-400">Ранние пташки</h3>
+                            <h3 className="font-semibold text-yellow-600 dark:text-yellow-400">Ранние чемпионы</h3>
                         </div>
                         <div className="flex justify-around items-end gap-2">
                              {/* 2nd Place */}

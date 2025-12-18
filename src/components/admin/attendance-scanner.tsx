@@ -26,6 +26,11 @@ interface StoreOption {
   name: string
 }
 
+type FaceDescriptorRow = {
+  id: string
+  descriptor: number[]
+}
+
 type ScanStep = 'loading' | 'scanning' | 'success'
 
 interface AttendanceScannerProps {
@@ -141,7 +146,7 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
         setVerificationStatus('Загрузка базы лиц...')
         
         // Helper function to build FaceMatcher from descriptors
-        const buildFaceMatcher = (descriptors: Array<{ id: string; descriptor: number[] }>) => {
+        const buildFaceMatcher = (descriptors: FaceDescriptorRow[]) => {
           if (descriptors.length === 0) return null
           const labeledDescriptors = descriptors.map(d => 
             new faceapi.LabeledFaceDescriptors(
@@ -153,14 +158,14 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
         }
 
         // Helper function to load descriptors (kiosk mode only - uses cache)
-        const loadDescriptorsWithCache = async () => {
+        const loadDescriptorsWithCache = async (): Promise<FaceDescriptorRow[]> => {
           if (!isKioskApiMode) {
             // Admin mode: no cache, just fetch directly
             return await getAllFaceDescriptors()
           }
 
           // Kiosk mode: try cache first, then fetch fresh in background
-          const cached = await getCachedDescriptors()
+            const cached = await getCachedDescriptors()
           
           if (cached && cached.descriptors.length > 0) {
             // Use cache immediately
@@ -205,7 +210,7 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
               }
             }
             
-            return cached.descriptors
+            return cached.descriptors as FaceDescriptorRow[]
           } else {
             // No cache: fetch from server
             const abortController = new AbortController()
@@ -218,7 +223,7 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
             if (!res.ok) throw new Error(`Failed to load kiosk descriptors (${res.status})`)
             
             const data = await res.json()
-            const descriptors = data.descriptors || data
+            const descriptors = (data.descriptors || data) as FaceDescriptorRow[]
             const version = res.headers.get('x-face-descriptors-version') || data.version || '0'
             
             // Save to cache
@@ -230,7 +235,7 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
           }
         }
 
-        const descriptors = await loadDescriptorsWithCache()
+        const descriptors: FaceDescriptorRow[] = await loadDescriptorsWithCache()
         setLoadingProgress(70)
         
         if (!descriptors || descriptors.length === 0) {
@@ -241,7 +246,7 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
 
         // Build face matcher if not already built from cache
         if (!faceMatcher) {
-          const labeledDescriptors = descriptors.map(d => 
+          const labeledDescriptors = descriptors.map((d: FaceDescriptorRow) => 
             new faceapi.LabeledFaceDescriptors(
               d.id, 
               [new Float32Array(d.descriptor)]

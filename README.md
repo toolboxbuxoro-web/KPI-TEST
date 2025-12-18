@@ -45,7 +45,7 @@ npm install
 
 3. Set up environment variables:
 ```bash
-cp .env.example .env
+cp env.example .env
 ```
 
 Edit `.env` with your configuration:
@@ -53,6 +53,8 @@ Edit `.env` with your configuration:
 DATABASE_URL="postgresql://..."
 NEXTAUTH_SECRET="your-secret-key"
 NEXTAUTH_URL="http://localhost:3000"
+KIOSK_JWT_SECRET="your-kiosk-jwt-secret" # optional (falls back to NEXTAUTH_SECRET)
+KIOSK_JWT_TTL_SECONDS="43200"            # optional (12h default)
 UPSTASH_REDIS_REST_URL="..."
 UPSTASH_REDIS_REST_TOKEN="..."
 UPLOADTHING_TOKEN="..."

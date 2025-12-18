@@ -2,9 +2,30 @@
 
 import prisma from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { requireSessionUser } from "@/lib/server-auth"
+
+async function assertStoreManagerCanAccessEmployee(employeeId: string, storeId: string) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { storeId: true },
+  })
+  if (!employee) throw new Error("Employee not found")
+  if (employee.storeId !== storeId) throw new Error("Forbidden")
+}
 
 export async function registerAttendance(employeeId: string, type: 'in' | 'out', storeId?: string, branch: string = "Main Branch") {
   try {
+    const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+
+    // STORE_MANAGER can only register attendance for their own store & employees.
+    if (session.user.role === "STORE_MANAGER") {
+      const managerStoreId = session.user.storeId
+      if (!managerStoreId) throw new Error("Forbidden")
+      if (storeId && storeId !== managerStoreId) throw new Error("Forbidden")
+      storeId = managerStoreId
+      await assertStoreManagerCanAccessEmployee(employeeId, managerStoreId)
+    }
+
     // Get today's start and end
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -91,6 +112,13 @@ export async function registerAttendance(employeeId: string, type: 'in' | 'out',
 }
 
 export async function getTodayAttendance(employeeId: string) {
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+  if (session.user.role === "STORE_MANAGER") {
+    const managerStoreId = session.user.storeId
+    if (!managerStoreId) throw new Error("Forbidden")
+    await assertStoreManagerCanAccessEmployee(employeeId, managerStoreId)
+  }
+
   const now = new Date()
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
@@ -112,6 +140,16 @@ export async function getTodayAttendance(employeeId: string) {
 }
 
 export async function getAllTodayAttendance(storeId?: string) {
+    const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+
+    // STORE_MANAGER can only see their store (and cannot request another storeId).
+    if (session.user.role === "STORE_MANAGER") {
+        const managerStoreId = session.user.storeId
+        if (!managerStoreId) throw new Error("Forbidden")
+        if (storeId && storeId !== managerStoreId) throw new Error("Forbidden")
+        storeId = managerStoreId
+    }
+
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
@@ -130,7 +168,19 @@ export async function getAllTodayAttendance(storeId?: string) {
     const records = await prisma.attendanceRecord.findMany({
       where: whereClause,
       include: {
-        employee: true
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+            imageUrl: true,
+            storeId: true,
+          },
+        },
+        store: {
+          select: { id: true, name: true },
+        },
       },
       orderBy: {
         checkIn: 'desc'
@@ -141,6 +191,13 @@ export async function getAllTodayAttendance(storeId?: string) {
 }
 
 export async function getEmployeeAttendanceHistory(employeeId: string, month: number, year: number) {
+    const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+    if (session.user.role === "STORE_MANAGER") {
+        const managerStoreId = session.user.storeId
+        if (!managerStoreId) throw new Error("Forbidden")
+        await assertStoreManagerCanAccessEmployee(employeeId, managerStoreId)
+    }
+
     const startDate = new Date(year, month, 1)
     const endDate = new Date(year, month + 1, 0, 23, 59, 59)
 
@@ -167,6 +224,13 @@ export async function getEmployeeAttendanceHistory(employeeId: string, month: nu
 
 // Get monthly attendance summary with missing days info
 export async function getMonthlyAttendanceSummary(employeeId: string, month: number, year: number) {
+    const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+    if (session.user.role === "STORE_MANAGER") {
+        const managerStoreId = session.user.storeId
+        if (!managerStoreId) throw new Error("Forbidden")
+        await assertStoreManagerCanAccessEmployee(employeeId, managerStoreId)
+    }
+
     const startDate = new Date(year, month, 1)
     const endDate = new Date(year, month + 1, 0)
     const daysInMonth = endDate.getDate()

@@ -7,7 +7,7 @@ import * as faceapi from 'face-api.js'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { saveFaceDescriptor, signBiometricConsent } from '@/app/actions/face-recognition'
+import { saveFaceDescriptor } from '@/app/actions/face-recognition'
 
 interface FaceDescriptorGeneratorProps {
   employeeId: string
@@ -56,11 +56,6 @@ export function FaceDescriptorGenerator({
     setStatus('loading')
 
     try {
-      // First, sign consent if not already signed
-      if (!hasConsent) {
-        await signBiometricConsent(employeeId)
-      }
-
       // Load models
       const loaded = await loadModels()
       if (!loaded) {

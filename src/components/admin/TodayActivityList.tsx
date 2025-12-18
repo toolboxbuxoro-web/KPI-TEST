@@ -10,18 +10,32 @@ import { getAllTodayAttendance } from '@/app/actions/attendance'
 
 interface TodayActivityListProps {
   storeId?: string
+  kioskAccessToken?: string
   onBack: () => void
 }
 
-export function TodayActivityList({ storeId, onBack }: TodayActivityListProps) {
+export function TodayActivityList({ storeId, kioskAccessToken, onBack }: TodayActivityListProps) {
   const [recentLogs, setRecentLogs] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   const fetchLogs = async () => {
     try {
       setIsLoading(true)
-      const logs = await getAllTodayAttendance(storeId || undefined)
-      setRecentLogs(logs)
+      if (kioskAccessToken) {
+        const url = storeId
+          ? `/api/kiosk/today-attendance?storeId=${encodeURIComponent(storeId)}`
+          : `/api/kiosk/today-attendance`
+
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${kioskAccessToken}` },
+        })
+        if (!res.ok) throw new Error(`Failed to fetch kiosk logs (${res.status})`)
+        const logs = await res.json()
+        setRecentLogs(logs)
+      } else {
+        const logs = await getAllTodayAttendance(storeId || undefined)
+        setRecentLogs(logs)
+      }
     } catch (error) {
       console.error("Failed to fetch logs", error)
     } finally {
@@ -33,7 +47,7 @@ export function TodayActivityList({ storeId, onBack }: TodayActivityListProps) {
     fetchLogs()
     const interval = setInterval(fetchLogs, 30000)
     return () => clearInterval(interval)
-  }, [storeId])
+  }, [storeId, kioskAccessToken])
 
   // Calculate Top 3 Early Birds
   const earlyBirds = useMemo(() => {

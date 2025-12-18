@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   images: {
@@ -8,6 +9,10 @@ const nextConfig: NextConfig = {
         hostname: "utfs.io",
       },
     ],
+  },
+  turbopack: {
+    // Fix monorepo/multiple-lockfile warning by explicitly setting the project root
+    root: path.resolve(process.cwd()),
   },
 };
 

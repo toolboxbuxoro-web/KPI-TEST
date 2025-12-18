@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/db"
 import { employeeSchema } from "@/lib/schemas"
-import { auth } from "@/auth"
+import { requireSessionUser } from "@/lib/server-auth"
 import { revalidatePath } from "next/cache"
 
 import { utapi } from "@/server/uploadthing"
@@ -28,8 +28,7 @@ export interface EmployeeCreateData {
 }
 
 export async function createEmployee(data: EmployeeCreateData) {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
 
   const validated = employeeSchema.safeParse(data)
   if (!validated.success) {
@@ -59,6 +58,13 @@ export async function createEmployee(data: EmployeeCreateData) {
     imageUrl: validated.data.imageUrl || null,
   }
 
+  // Store manager can only create employees for their own store and cannot assign privileged roles.
+  if (session.user.role === "STORE_MANAGER") {
+    if (!session.user.storeId) throw new Error("Forbidden")
+    createData.storeId = session.user.storeId
+    createData.role = "EMPLOYEE"
+  }
+
   await prisma.employee.create({ data: createData })
 
   revalidatePath("/admin/employees")
@@ -66,8 +72,18 @@ export async function createEmployee(data: EmployeeCreateData) {
 }
 
 export async function updateEmployee(id: string, data: Partial<EmployeeCreateData>) {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+
+  // STORE_MANAGER can only edit employees from their own store.
+  if (session.user.role === "STORE_MANAGER") {
+    if (!session.user.storeId) throw new Error("Forbidden")
+    const existing = await prisma.employee.findUnique({
+      where: { id },
+      select: { storeId: true },
+    })
+    if (!existing) return { error: "Сотрудник не найден" }
+    if (existing.storeId !== session.user.storeId) throw new Error("Forbidden")
+  }
 
   const validated = employeeSchema.partial().safeParse(data)
   if (!validated.success) {
@@ -93,6 +109,12 @@ export async function updateEmployee(id: string, data: Partial<EmployeeCreateDat
   // Обновление пароля только если он предоставлен и не пустой
   if (validated.data.password && validated.data.password.length > 0) {
     updateData.password = await bcrypt.hash(validated.data.password, 10)
+  }
+
+  // Store manager cannot change role/store binding (and should not move employees between stores).
+  if (session.user.role === "STORE_MANAGER") {
+    delete updateData.role
+    delete updateData.storeId
   }
 
   await prisma.employee.update({
@@ -152,8 +174,7 @@ function extractFileKey(url: string): string | null {
 }
 
 export async function deleteEmployee(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
 
   const employee = await prisma.employee.findUnique({
     where: { id },
@@ -162,6 +183,12 @@ export async function deleteEmployee(id: string) {
 
   if (!employee) {
     return { error: "Сотрудник не найден" }
+  }
+
+  // STORE_MANAGER can only delete employees from their own store.
+  if (session.user.role === "STORE_MANAGER") {
+    if (!session.user.storeId) throw new Error("Forbidden")
+    if (employee.storeId !== session.user.storeId) throw new Error("Forbidden")
   }
 
   try {
@@ -208,8 +235,17 @@ export async function deleteEmployee(id: string) {
 }
 
 export async function addDocument(employeeId: string, file: { name: string; url: string; size: number; type: string }) {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+
+  if (session.user.role === "STORE_MANAGER") {
+    if (!session.user.storeId) throw new Error("Forbidden")
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { storeId: true },
+    })
+    if (!employee) return { error: "Сотрудник не найден" }
+    if (employee.storeId !== session.user.storeId) throw new Error("Forbidden")
+  }
 
   await prisma.employeeDocument.create({
     data: {
@@ -226,12 +262,19 @@ export async function addDocument(employeeId: string, file: { name: string; url:
 }
 
 export async function deleteDocument(id: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
 
-  const doc = await prisma.employeeDocument.findUnique({ where: { id } })
+  const doc = await prisma.employeeDocument.findUnique({
+    where: { id },
+    include: { employee: { select: { storeId: true } } },
+  })
   if (!doc) {
     return { error: "Документ не найден" }
+  }
+
+  if (session.user.role === "STORE_MANAGER") {
+    if (!session.user.storeId) throw new Error("Forbidden")
+    if (doc.employee.storeId !== session.user.storeId) throw new Error("Forbidden")
   }
 
   try {
@@ -258,15 +301,30 @@ export async function deleteDocument(id: string) {
 }
 
 export async function getEmployee(id: string) {
-  // Allow public access for scanner kiosk mode
-  // const session = await auth()
-  // if (!session?.user) throw new Error("Unauthorized")
-
   try {
+    const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+
     const employee = await prisma.employee.findUnique({
       where: { id },
-      include: { documents: true }
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        position: true,
+        imageUrl: true,
+        isActive: true,
+        storeId: true,
+      },
     })
+
+    if (!employee) return { error: "Сотрудник не найден" }
+
+    if (session.user.role === "STORE_MANAGER") {
+      if (!session.user.storeId) throw new Error("Forbidden")
+      if (employee.storeId !== session.user.storeId) throw new Error("Forbidden")
+    }
+
     return employee
   } catch (error) {
     console.error("Error fetching employee:", error)
@@ -275,22 +333,24 @@ export async function getEmployee(id: string) {
 }
 
 export async function getAllEmployeesWithPhotos() {
-  const session = await auth()
-  if (!session?.user) return { error: "Unauthorized" }
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
+  const storeId = session.user.storeId ?? null
 
   try {
     const employees = await prisma.employee.findMany({
       where: {
         imageUrl: {
           not: null
-        }
+        },
+        ...(session.user.role === "STORE_MANAGER" ? { storeId } : {}),
       },
       select: {
         id: true,
         firstName: true,
         lastName: true,
         position: true,
-        imageUrl: true
+        imageUrl: true,
+        storeId: true,
       }
     })
     return { employees }
@@ -305,16 +365,20 @@ export async function getAllEmployeesWithPhotos() {
  * When deactivated, employee will not appear in face recognition
  */
 export async function toggleEmployeeActive(employeeId: string) {
-  const session = await auth()
-  if (!session?.user) throw new Error("Unauthorized")
+  const session = await requireSessionUser({ roles: ["SUPER_ADMIN", "STORE_MANAGER"] })
 
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
-    select: { isActive: true, firstName: true, lastName: true }
+    select: { isActive: true, firstName: true, lastName: true, storeId: true }
   })
 
   if (!employee) {
     return { error: "Сотрудник не найден" }
+  }
+
+  if (session.user.role === "STORE_MANAGER") {
+    if (!session.user.storeId) throw new Error("Forbidden")
+    if (employee.storeId !== session.user.storeId) throw new Error("Forbidden")
   }
 
   const newStatus = !employee.isActive
@@ -328,6 +392,9 @@ export async function toggleEmployeeActive(employeeId: string) {
   try {
     const { redis } = await import("@/lib/redis")
     await redis.del("face:descriptors:all")
+    if (employee.storeId) {
+      await redis.del(`face:descriptors:store:${employee.storeId}`)
+    }
   } catch (error) {
     console.error("Redis cache invalidation error:", error)
   }

@@ -28,6 +28,7 @@ export function AttendanceFlow() {
   const { data: session } = useSession()
   const [storeId, setStoreId] = useState<string | null>(null)
   const [storeName, setStoreName] = useState<string | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [isLoggingIn, setIsLoggingIn] = useState(false)
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
@@ -38,9 +39,20 @@ export function AttendanceFlow() {
   useEffect(() => {
     const savedStoreId = localStorage.getItem('toolbox_kiosk_store_id')
     const savedStoreName = localStorage.getItem('toolbox_kiosk_store_name')
-    if (savedStoreId) {
+    const savedAccessToken = localStorage.getItem('toolbox_kiosk_access_token')
+
+    // Migration safety: older sessions might have store_id without a token.
+    if (savedStoreId && !savedAccessToken) {
+      localStorage.removeItem('toolbox_kiosk_store_id')
+      localStorage.removeItem('toolbox_kiosk_store_name')
+      toast.message('Требуется повторный вход в терминал')
+      return
+    }
+
+    if (savedStoreId && savedAccessToken) {
       setStoreId(savedStoreId)
       setStoreName(savedStoreName)
+      setAccessToken(savedAccessToken)
     }
   }, [])
 
@@ -73,18 +85,66 @@ export function AttendanceFlow() {
         console.warn('Failed to get client IP')
       }
 
-      const result = await authenticateStore(login, password, clientIP)
-      if (result.success && result.storeId) {
-        setStoreId(result.storeId)
-        setStoreName(result.storeName || null)
-        localStorage.setItem('toolbox_kiosk_store_id', result.storeId)
-        if (result.storeName) {
-          localStorage.setItem('toolbox_kiosk_store_name', result.storeName)
+      const safeJson = async (res: Response) => {
+        try {
+          return await res.json()
+        } catch {
+          return null
         }
+      }
+
+      // Preferred: kiosk API login -> returns short-lived access token
+      let kioskLoginResult: any = null
+      try {
+        const resp = await fetch('/api/kiosk/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, password, clientIP }),
+        })
+
+        if (resp.ok) {
+          kioskLoginResult = await safeJson(resp)
+        } else if (resp.status !== 404) {
+          const err = await safeJson(resp)
+          toast.error(err?.error || 'Ошибка входа')
+          return
+        }
+      } catch {
+        // fall through to legacy action (dev/back-compat)
+      }
+
+      if (kioskLoginResult?.accessToken && kioskLoginResult?.storeId) {
+        setStoreId(kioskLoginResult.storeId)
+        setStoreName(kioskLoginResult.storeName || null)
+        setAccessToken(kioskLoginResult.accessToken)
+
+        localStorage.setItem('toolbox_kiosk_store_id', kioskLoginResult.storeId)
+        localStorage.setItem('toolbox_kiosk_access_token', kioskLoginResult.accessToken)
+        if (kioskLoginResult.storeName) {
+          localStorage.setItem('toolbox_kiosk_store_name', kioskLoginResult.storeName)
+        }
+
         setIsLoggingIn(false)
-        toast.success(`Терминал: ${result.storeName}`)
+        toast.success(`Терминал: ${kioskLoginResult.storeName || 'Активирован'}`)
+        return
+      }
+
+      // Legacy fallback (kept to avoid breaking if kiosk API isn't deployed yet)
+      const legacyResult = await authenticateStore(login, password, clientIP)
+      if (legacyResult.success && legacyResult.storeId) {
+        setStoreId(legacyResult.storeId)
+        setStoreName(legacyResult.storeName || null)
+        setAccessToken(null)
+
+        localStorage.setItem('toolbox_kiosk_store_id', legacyResult.storeId)
+        if (legacyResult.storeName) {
+          localStorage.setItem('toolbox_kiosk_store_name', legacyResult.storeName)
+        }
+
+        toast.message('Терминал активирован (legacy режим)')
+        setIsLoggingIn(false)
       } else {
-        toast.error(result.error || 'Ошибка входа')
+        toast.error(legacyResult.error || 'Ошибка входа')
       }
     } catch (error) {
       toast.error('Ошибка сети')
@@ -96,8 +156,10 @@ export function AttendanceFlow() {
   const handleReset = () => {
     localStorage.removeItem('toolbox_kiosk_store_id')
     localStorage.removeItem('toolbox_kiosk_store_name')
+    localStorage.removeItem('toolbox_kiosk_access_token')
     setStoreId(null)
     setStoreName(null)
+    setAccessToken(null)
     setLogin('')
     setPassword('')
     setIsLoggingIn(false)
@@ -108,7 +170,12 @@ export function AttendanceFlow() {
   if (storeId) {
     return (
       <div className="w-full flex-1">
-         <AttendanceScanner preselectedStoreId={storeId} onResetStore={handleReset} />
+         <AttendanceScanner
+           preselectedStoreId={storeId}
+           preselectedStoreName={storeName || undefined}
+           kioskAccessToken={accessToken || undefined}
+           onResetStore={handleReset}
+         />
       </div>
     )
   }

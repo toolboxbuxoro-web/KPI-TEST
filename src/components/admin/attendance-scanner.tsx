@@ -96,6 +96,7 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
   // Ref for counting unknown attempts
   const unknownAttemptsRef = useRef(0)
   const [activeTab, setActiveTab] = useState<'scanner' | 'list'>('scanner')
+  const [activityListRefreshTrigger, setActivityListRefreshTrigger] = useState(0)
   
   // AbortController refs for kiosk fetches to prevent race conditions
   const fetchLogsAbortControllerRef = useRef<AbortController | null>(null)
@@ -604,6 +605,8 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
                 employee: targetEmployee 
             })
             fetchLogs()
+            // Trigger refresh of activity list
+            setActivityListRefreshTrigger(prev => prev + 1)
       } else {
            const modeLabel = scanMode === "in" ? "Вход" : "Выход"
            // Handle specific statuses
@@ -681,7 +684,8 @@ export function AttendanceScanner({ preselectedStoreId, preselectedStoreName, ki
           <TodayActivityList 
             storeId={selectedStoreId || undefined} 
             kioskAccessToken={isKioskApiMode ? (kioskToken || undefined) : undefined}
-            onBack={() => setActiveTab('scanner')} 
+            onBack={() => setActiveTab('scanner')}
+            refreshTrigger={activityListRefreshTrigger}
           />
         </div>
       )}

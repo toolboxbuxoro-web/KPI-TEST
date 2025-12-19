@@ -12,6 +12,7 @@ export const authConfig = {
       if (user) {
         token.role = user.role
         token.storeId = user.storeId
+        token.userType = user.userType
       }
       return token
     },
@@ -19,8 +20,15 @@ export const authConfig = {
       if (session.user) {
         session.user.role = token.role as Role | undefined
         session.user.storeId = token.storeId as string | null | undefined
+        session.user.userType = token.userType as 'EMPLOYEE' | 'STORE' | undefined
       }
       return session
+    },
+    async redirect({ url, baseUrl }) {
+      // Allow callbackUrl to override default redirect
+      if (url.startsWith(baseUrl)) return url
+      if (url.startsWith('/')) return `${baseUrl}${url}`
+      return baseUrl
     },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
@@ -56,8 +64,12 @@ export const authConfig = {
             return Response.redirect(new URL('/access-denied', nextUrl));
         }
 
-        // EMPLOYEE access to admin panel - redirect to their dashboard
+        // EMPLOYEE access to admin panel - redirect to their profile
         if (role === 'EMPLOYEE') {
+            const userId = auth?.user?.id
+            if (userId) {
+                return Response.redirect(new URL(`/employee/${userId}`, nextUrl));
+            }
             return Response.redirect(new URL('/access-denied', nextUrl));
         }
       }

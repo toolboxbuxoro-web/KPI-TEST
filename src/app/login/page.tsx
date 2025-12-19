@@ -12,18 +12,39 @@ import { Loader2, LogIn, ShieldCheck, ArrowLeft } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 function LoginContent() {
-  const [email, setEmail] = useState("")
+  const [login, setLogin] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/admin"
+  const callbackUrl = searchParams.get("callbackUrl")
   const error = searchParams.get("error")
+
+  // Helper function to check if input is email format
+  const isEmail = (str: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)
+  }
+
+  // Get redirect URL based on user role/type
+  const getRedirectUrl = (role?: string, userId?: string) => {
+    if (callbackUrl) return callbackUrl
+    
+    switch (role) {
+      case 'SUPER_ADMIN':
+        return '/admin'
+      case 'STORE_MANAGER':
+        return '/admin'
+      case 'EMPLOYEE':
+        return userId ? `/employee/${userId}` : '/check'
+      default:
+        return '/admin'
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     
-    if (!email || !password) {
+    if (!login || !password) {
       toast.error("Заполните все поля")
       return
     }
@@ -31,8 +52,41 @@ function LoginContent() {
     setLoading(true)
     
     try {
+      // Check if it's a Store login (not email format)
+      if (!isEmail(login)) {
+        // Try Store authentication
+        const response = await fetch('/api/kiosk/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ login, password })
+        })
+
+        const data = await response.json()
+
+        if (!response.ok) {
+          toast.error(data.error || "Неверный логин или пароль")
+          setLoading(false)
+          return
+        }
+
+        // Store login successful - redirect to kiosk terminal
+        toast.success("Вход выполнен успешно")
+        
+        // Save store info to localStorage for kiosk mode
+        if (data.storeId && data.accessToken) {
+          localStorage.setItem('toolbox_kiosk_store_id', data.storeId)
+          localStorage.setItem('toolbox_kiosk_store_name', data.storeName || '')
+          localStorage.setItem('toolbox_kiosk_access_token', data.accessToken)
+        }
+        
+        router.push('/check')
+        router.refresh()
+        return
+      }
+
+      // Employee login (email format) - use NextAuth
       const result = await signIn("credentials", {
-        email,
+        email: login,
         password,
         redirect: false,
       })
@@ -41,8 +95,20 @@ function LoginContent() {
         toast.error("Неверный email или пароль")
       } else if (result?.ok) {
         toast.success("Вход выполнен успешно")
-        router.push(callbackUrl)
-        router.refresh()
+        
+        // Get user session to determine redirect
+        try {
+          const sessionResponse = await fetch('/api/auth/session')
+          const session = await sessionResponse.json()
+          
+          const redirectUrl = getRedirectUrl(session?.user?.role, session?.user?.id)
+          router.push(redirectUrl)
+          router.refresh()
+        } catch (err) {
+          // Fallback to default redirect
+          router.push(callbackUrl || '/admin')
+          router.refresh()
+        }
       }
     } catch (error) {
       console.error("Login error:", error)
@@ -80,20 +146,23 @@ function LoginContent() {
             
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email
+                <Label htmlFor="login" className="text-sm font-medium">
+                  Логин / Email
                 </Label>
                 <Input 
-                  id="email" 
-                  type="email" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
+                  id="login" 
+                  type="text" 
+                  value={login} 
+                  onChange={(e) => setLogin(e.target.value)} 
                   required 
                   autoFocus
                   disabled={loading}
-                  placeholder="ivan@example.com"
+                  placeholder="ivan@example.com или логин магазина"
                   className="h-11 text-base neo-input"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Для сотрудников: email. Для магазинов: логин магазина
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium">

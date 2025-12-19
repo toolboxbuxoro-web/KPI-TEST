@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Clock, Trophy, ArrowLeft, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card'
@@ -12,13 +12,14 @@ interface TodayActivityListProps {
   storeId?: string
   kioskAccessToken?: string
   onBack: () => void
+  refreshTrigger?: number
 }
 
-export function TodayActivityList({ storeId, kioskAccessToken, onBack }: TodayActivityListProps) {
+export function TodayActivityList({ storeId, kioskAccessToken, onBack, refreshTrigger }: TodayActivityListProps) {
   const [recentLogs, setRecentLogs] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setIsLoading(true)
       if (kioskAccessToken) {
@@ -41,13 +42,20 @@ export function TodayActivityList({ storeId, kioskAccessToken, onBack }: TodayAc
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [storeId, kioskAccessToken])
 
   useEffect(() => {
     fetchLogs()
     const interval = setInterval(fetchLogs, 30000)
     return () => clearInterval(interval)
-  }, [storeId, kioskAccessToken])
+  }, [fetchLogs])
+
+  // Refresh when refreshTrigger changes (triggered after successful scan)
+  useEffect(() => {
+    if (refreshTrigger !== undefined && refreshTrigger > 0) {
+      fetchLogs()
+    }
+  }, [refreshTrigger, fetchLogs])
 
   // Calculate Top 3 Early Birds
   const earlyBirds = useMemo(() => {

@@ -27,7 +27,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                   email: email, 
                   name: "Admin",
                   role: "SUPER_ADMIN" as Role,
-                  storeId: null
+                  storeId: null,
+                  userType: 'EMPLOYEE' as const
                 }
             }
 
@@ -47,7 +48,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                         email: employee.email,
                         name: `${employee.firstName} ${employee.lastName}`,
                         role: employee.role as Role,
-                        storeId: employee.storeId
+                        storeId: employee.storeId,
+                        userType: 'EMPLOYEE' as const
                      }
                 }
             }
